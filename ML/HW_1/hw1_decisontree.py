@@ -93,7 +93,7 @@ class RegrationTree():
 
   def split(self,node,data,depth):
     depth +=1
-    print(depth)
+    #print(depth)
     data = data.reset_index(drop=True)
     dataString,dataFloat = self.cleanData(data.iloc[:,:-1].copy(),self.StringColumns)
     dataString= pd.DataFrame(self.enc.transform(dataString).toarray(),columns = self.enc.get_feature_names())
@@ -220,18 +220,21 @@ DB.columns = ["vendor_name","Model_Name","MYCT","MMIN","MMAX","CACH","CHMIN","CH
 
 
 
-def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine = [],skiprows = [],rep = None):
+def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine = [],skiprows = [],rep = None,dropCol = []):
     DB = pd.read_csv("./data/"+DSname, delimiter = delimiter,skiprows=skiprows)
-    colNames = []
-    for i in range(DB.shape[1]):
-        colNames.append("col"+str(i))
-        
-    DB.columns = colNames
+
     
     if rep !=None:
         DB = DB.replace(rep, np.nan)
     DB = DB.dropna(axis = 1)
     
+    DB.drop(DB.columns[dropCol],axis=1,inplace=True)
+    
+    colNames = []
+    for i in range(DB.shape[1]):
+        colNames.append("col"+str(i))
+        
+    DB.columns = colNames
     
     for index in indexsStringLine:
         DB[colNames[index]] = DB[colNames[index]].apply(lambda x: 'A'+str(x))
@@ -256,8 +259,9 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         regressor.fit(X_train1,y_train1)
         yPred = regressor.predict(X_test1)
         print(f"sklearn model MSE is: {RegrationTree.MSETest(yPred,y_test1.values)}")
-        #our model
 
+        #our model
+        
         RT = RegrationTree(X_train,y_train,min_samples_split,regModel,StringColumns = DB.columns[indexsStringLine])
         RT.fit()
         yPred = RT.Predict(X_test)
@@ -271,7 +275,7 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         for i in range(len(X_test)):
             yPred.append(random.uniform(minVal, maxVal))
         print(f"Random model MSE is: {RegrationTree.MSETest(yPred,y_test.values)}")
-
+        
 
 ###params for the model####
 # you cahnge the min splits with min_samples_splits and give multiply splits
@@ -289,18 +293,19 @@ regModel = Ridge
 
 
 
-#activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
-#
-#
-#activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
-#
-#activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
-
-#activeCompare("imports-85.data",';',regModel,min_samples_splits,indexsStringLine = [0])
-#
-activeCompare("ENB2012_data.csv",',',regModel,min_samples_splits)
+activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
 
 
+activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
+
+
+activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
+
+
+activeCompare("qsar_aquatic_toxicity.csv",';',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [2,3])
+
+
+activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
 
 
 
