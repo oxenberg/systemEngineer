@@ -1,0 +1,7 @@
+Name, Description
+egrid2018_data_v2, has all the data on grids;plants;subregions and states
+egrid2018_summary_tables, summary tables of all data
+power_profiler_zipcode_tool_2018_3_09_20._v9, mapping the states to subregion by zipcode
+unemployment_data_us_state, unemployment rate by state;month;year
+usa_covid19_mortality_rates, data on infections;deaths; mortality rates. does not include recovery data
+COVID19_state, full data on each state that includes among others GDP;Gini;ICU beds; and more
