@@ -171,9 +171,11 @@ class RegrationTree():
       regModelPersonal = self.regModel()
       x = opt.iloc[:,:-1]
       y = opt.iloc[:,-1]
+
       regModelPersonal.fit(x,y)
       preY = regModelPersonal.predict(x)
       mse = self.MSETest(preY,y)
+          
       genralMSE += mse
     genralMSE = genralMSE/len(optionsList)
     return genralMSE
@@ -240,7 +242,7 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         DB[colNames[index]] = DB[colNames[index]].apply(lambda x: 'A'+str(x))
     
     
-    X_train, X_test, y_train, y_test = train_test_split(DB.iloc[:,:-1], DB.iloc[:,-1], test_size=0.3, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(DB.iloc[:,:-1], DB.iloc[:,-1], test_size=0.2, random_state=42)
     
     
     dataString,dataFloat = RegrationTree.cleanData(DB.iloc[:,:-1].copy(),DB.columns[indexsStringLine])
@@ -259,7 +261,9 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         regressor.fit(X_train1,y_train1)
         yPred = regressor.predict(X_test1)
         print(f"sklearn model MSE is: {RegrationTree.MSETest(yPred,y_test1.values)}")
-
+#        from sklearn import tree
+#        plt.figure(figsize = (10,10))
+#        tree.plot_tree(regressor, fontsize = 7) 
         #our model
         
         RT = RegrationTree(X_train,y_train,min_samples_split,regModel,StringColumns = DB.columns[indexsStringLine])
@@ -275,13 +279,13 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         for i in range(len(X_test)):
             yPred.append(random.uniform(minVal, maxVal))
         print(f"Random model MSE is: {RegrationTree.MSETest(yPred,y_test.values)}")
-        
+        return RT.root
 
 ###params for the model####
 # you cahnge the min splits with min_samples_splits and give multiply splits
 # you can change the model by import the right model and inisiate regModel var
         
-min_samples_splits = [10,15,30]
+min_samples_splits = [10]
 from sklearn.linear_model import Ridge
 regModel = Ridge
 
@@ -293,23 +297,26 @@ regModel = Ridge
 
 
 
-activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
+##working db
+
+#activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
+#
+#
+#activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
+#
+#
+#activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
+#
+#
+#activeCompare("qsar_aquatic_toxicity.csv",';',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [2,3])
+#
+#
+#activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
 
 
-activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
 
-
-activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
-
-
-activeCompare("qsar_aquatic_toxicity.csv",';',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [2,3])
-
-
-activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
-
-
-
-
+#testing
+root = activeCompare("machine.data",",",regModel,min_samples_splits,dropCol =  [0,1])
 
 
 
