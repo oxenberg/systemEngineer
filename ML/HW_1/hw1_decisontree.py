@@ -12,7 +12,6 @@ from sklearn import linear_model
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error as mse
 from sklearn.base import clone
 import matplotlib.pyplot as plt
 import numpy as np
@@ -36,7 +35,7 @@ class SplitFactor():
           return [0,self.model]
     else: 
       # if val bigger eqqual then the TH opt2 if smaller  to opt1 
-      if row[self.col]>=self.val:
+      if row[self.col]<self.val:
         return [1,"opt1"]
       else: 
         return [1,"opt2"]
@@ -64,6 +63,7 @@ class RegrationTree():
       mse+=(PredictLabels[index] - labels[index])**2
     mse = mse/len(PredictLabels)
     return mse
+
   @staticmethod
   def checkIfNum(val):
     try:
@@ -279,16 +279,14 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         for i in range(len(X_test)):
             yPred.append(random.uniform(minVal, maxVal))
         print(f"Random model MSE is: {RegrationTree.MSETest(yPred,y_test.values)}")
-        return RT.root
 
 ###params for the model####
-# you cahnge the min splits with min_samples_splits and give multiply splits
+# you can change the min splits with min_samples_splits and give multiply splits
 # you can change the model by import the right model and inisiate regModel var
         
-min_samples_splits = [10]
+min_samples_splits = [10, 15, 30]
 from sklearn.linear_model import Ridge
 regModel = Ridge
-
 
 #params for the preprocess
 #---indexsStringLine = index of categorial columns 
@@ -297,26 +295,17 @@ regModel = Ridge
 
 
 
-##working db
+#working db
 
-#activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
-#
-#
-#activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
-#
-#
-#activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
-#
-#
-#activeCompare("qsar_aquatic_toxicity.csv",';',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [2,3])
-#
-#
-#activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
+activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
 
+activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
 
+activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
 
-#testing
-root = activeCompare("machine.data",",",regModel,min_samples_splits,dropCol =  [0,1])
+activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
+
+activeCompare("student-por.csv",';',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0,1,3,4,5,8,9,10,11,15,16,17,18,19,20,21,22])
 
 
 
