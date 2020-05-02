@@ -299,14 +299,13 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         
 
 ###params for the model####
-# you cahnge the min splits with min_samples_splits and give multiply splits
+# you can change the min splits with min_samples_splits and give multiply splits
 # you can change the model by import the right model and inisiate regModel var
         
-min_samples_splits = [10]
+min_samples_splits = [10, 15, 30]
 from sklearn.linear_model import Ridge
 from sklearn.linear_model import LinearRegression
 regModel = Ridge
-
 
 #params for the preprocess
 #---indexsStringLine = index of categorial columns 
@@ -315,20 +314,18 @@ regModel = Ridge
 
 
 
-##working db
+#working db
 
-#activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
-#
-#
-#activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
-#
-#
-#activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
-#
-#
+activeCompare("machine.data",",",regModel,min_samples_splits,indexsStringLine =  [0,1])
 
-#
-#activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
+activeCompare("servo.data", ',',regModel,min_samples_splits,indexsStringLine = [0,1])
+
+activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
+
+activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
+
+activeCompare("student-por.csv",';',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0,1,3,4,5,8,9,10,11,15,16,17,18,19,20,21,22])
+
 
 
 
