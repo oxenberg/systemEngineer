@@ -1,6 +1,6 @@
 # HW-1 Decision tree
 
-##table of comperation
+## table of comperation
 
 
 | Did  we manipulate the data? | Linear Regression Model | Dateset name in code | Dataset Name | Dataset link | sklearn MSE score (10 min sample) | our MSE score (10 min sample) | sklearn MSE score (15 min sample) | our MSE score (15 min sample) | sklearn MSE score (30 min sample) | our MSE score (30 min sample) | Random model MSE score (10 min sample) | Random model MSE score (15 min sample) | Random model MSE score (30 min sample) |
