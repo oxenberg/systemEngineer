@@ -8,52 +8,56 @@ Original file is located at
 """
 
 import pandas as pd
-from sklearn import linear_model
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import mean_squared_error as mse
-from sklearn.base import clone
-import matplotlib.pyplot as plt
 import numpy as np
 import random
 
 """# Build tree"""
-
+#this class contain the function of split in every node and save the parameters..
+#to the split.
 class SplitFactor():
   def __init__(self,col,val,featureType,optionsDict):
     self.col = col
     self.val = val
     self.featureType = featureType #S - string , N - num 
     self.optionsDict = optionsDict
+    #if the feature Type is string
     if featureType == "S":
          self.optionsDict = {v: k for k, v in self.optionsDict.items()}    
+         
   def calc(self,row):
+    #if the feature Type is string
     if self.featureType == "S":
       try:
           return [1,self.optionsDict[row[self.col]]]
       except KeyError:
           return [0,self.model]
+    #if the feature Type is float
     else: 
       # if val bigger eqqual then the TH opt2 if smaller  to opt1 
-      if row[self.col]>=self.val:
+      if row[self.col]<self.val:
         return [1,"opt1"]
       else: 
         return [1,"opt2"]
+  #model seter  
   def setModel(self,model):
       self.model = model
 
+# the main class for the regreesion tree model
 class RegrationTree():
 
   def __init__(self,trainData,trainLabel,minSample,regModel,StringColumns = []):
     self.regModel = regModel # the user give the Sklearn Model inisitalizer 
-    self.minSample = minSample
+    self.minSample = minSample #the min number of sample in leaf
     self.trainData = trainData
     self.trainLabel = trainLabel
-    self.StringColumns = StringColumns
+    self.StringColumns = StringColumns # the categorial columns
     self.root = {}
     
   @staticmethod
+  # calculate MSE by given prediction values and the lables.
   def MSETest(PredictLabels,labels):
     if isinstance(PredictLabels,pd.Series):
         PredictLabels = PredictLabels.values
@@ -64,7 +68,9 @@ class RegrationTree():
       mse+=(PredictLabels[index] - labels[index])**2
     mse = mse/len(PredictLabels)
     return mse
+
   @staticmethod
+  # check if val is float type (we added a before every categorial column)
   def checkIfNum(val):
     try:
         float(val)
@@ -81,49 +87,57 @@ class RegrationTree():
     return data , floatData
 
 
-
+  # fit the model by the data in the constractor
   def fit(self):
     stringData,_ = self.cleanData(self.trainData.copy(),self.StringColumns)
-    self.enc = OneHotEncoder(handle_unknown='ignore')
-    self.enc.fit(stringData)
+    self.enc = OneHotEncoder(handle_unknown='ignore') 
+    self.enc.fit(stringData) #enocde by one hot encoder the categorial columns
     data = pd.concat([self.trainData, self.trainLabel], axis=1)
     depth = 0
     self.split(self.root,data,depth)
   
-
+  #create the tree recursivly
   def split(self,node,data,depth):
-    depth +=1
-    #print(depth)
+    depth +=1    
+    #reset the index in the dataframe for concat correctley the dataString and dataFloat
     data = data.reset_index(drop=True)
     dataString,dataFloat = self.cleanData(data.iloc[:,:-1].copy(),self.StringColumns)
     dataString= pd.DataFrame(self.enc.transform(dataString).toarray(),columns = self.enc.get_feature_names())
     Encode_data = pd.concat([dataString.reset_index(drop=True), dataFloat.reset_index(drop=True),data.iloc[:,-1].reset_index(drop=True)], axis=1)
+    #create reg model to store in the node
     model = self.regModel()
     model.fit(Encode_data.iloc[:,:-1],Encode_data.iloc[:,-1])
+    #if this node contain less the minSample stop the recursive
     if len(data) <= self.minSample or len(data) <= 1:
       node["Regfunc"] = model
       return
     listData = self.MSE_Calc(node,data,Encode_data)
+    #if we didnt have split factor for this node
     if listData == None:
       node["Regfunc"] = self.regModel()
       node["Regfunc"].fit(Encode_data.iloc[:,:-1],Encode_data.iloc[:,-1])
       return
+    # run over all the splits after this node end the calculation
     for index,opt in enumerate(node["optionsDict"]):
       node["optionsDict"][opt] = {}
+      # set the model in the splitFactor class for this node
       node["splitFactor"].setModel(model)
+      # go to the next children node in the tree
       self.split(node["optionsDict"][opt],listData[index],depth)
 
 
 
   # run over all the columns names and calc the max MSE feature and the split factor
   def MSE_Calc(self,node,data,Encode_data):      
-    MIN_MSE_ITEM = ["","",np.inf,"",""]
+    MIN_MSE_ITEM = ["","",np.inf,"",""] # inisilaze max val for the mse
     for col in list(data.columns)[:-1]:
       val = data[col].iloc[0]
-      THs = data[col].unique()
+      THs = data[col].unique() # get all the THs 
+      #numaric split
       if(self.checkIfNum(val)):
         THs = list(sorted(THs))
         TH_MSE_List = []
+        # we iterate each node 
         for TH in THs[1:]:
           left = Encode_data[data[col]< TH]
           right = Encode_data[data[col] >= TH]
@@ -136,7 +150,7 @@ class RegrationTree():
         minVal = min(TH_MSE_List)
         dataForNode =[data[data[col]< THs[minIndex+1]],data[data[col] >= THs[minIndex+1]]]
         currentMSE = [col,THs[minIndex+1],minVal,"N",dataForNode]
-      #numinaly
+      #numinaly split
       else:
         optionsList = []
         dataForNode = []
@@ -165,6 +179,7 @@ class RegrationTree():
     node["splitFactor"] = SF
     return MIN_MSE_ITEM[-1]
   
+  #find the mse of N split for specifc TH
   def findMSE(self,optionsList):
     genralMSE = 0
     for opt in optionsList:
@@ -180,6 +195,8 @@ class RegrationTree():
     genralMSE = genralMSE/len(optionsList)
     return genralMSE
 
+  # go down in the tree until you get the "Regfunc" func in the split factor..
+  #of this node
   def Predict(self,data):
     data = data.reset_index(drop=True)
     PredictValues = []
@@ -221,7 +238,7 @@ DB.columns = ["vendor_name","Model_Name","MYCT","MMIN","MMAX","CACH","CHMIN","CH
 
 
 
-
+# active all the compartion for specifc data set
 def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine = [],skiprows = [],rep = None,dropCol = []):
     DB = pd.read_csv("./data/"+DSname, delimiter = delimiter,skiprows=skiprows)
 
@@ -279,7 +296,7 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         for i in range(len(X_test)):
             yPred.append(random.uniform(minVal, maxVal))
         print(f"Random model MSE is: {RegrationTree.MSETest(yPred,y_test.values)}")
-        return RT.root
+        
 
 ###params for the model####
 # you cahnge the min splits with min_samples_splits and give multiply splits
@@ -287,6 +304,7 @@ def activeCompare(DSname,delimiter,regModel,min_samples_splits,indexsStringLine 
         
 min_samples_splits = [10]
 from sklearn.linear_model import Ridge
+from sklearn.linear_model import LinearRegression
 regModel = Ridge
 
 
@@ -308,16 +326,9 @@ regModel = Ridge
 #activeCompare("Behavior of the urban traffic of the city of Sao Paulo in Brazil.csv",';',regModel,min_samples_splits,indexsStringLine = [0])
 #
 #
-#activeCompare("qsar_aquatic_toxicity.csv",';',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [2,3])
-#
+
 #
 #activeCompare("data_akbilgic.csv",',',regModel,min_samples_splits = min_samples_splits,indexsStringLine = [0])
-
-
-
-#testing
-root = activeCompare("machine.data",",",regModel,min_samples_splits,dropCol =  [0,1])
-
 
 
 
