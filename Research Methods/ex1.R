@@ -38,15 +38,19 @@ cor(data$`ACC-RF`, data$`ACC-ANN`, use="na.or.complete", method = "kendal")
 ### Question 2.3
 ## variance test
 
-var.test(data$`ACC-RF`,data$`ACC-ANN`) # the variance are the same
+
 ## t-test
 
-t.test(data$`ACC-RF`,data$`ACC-ANN`, var.equal = TRUE)
+t.test(data$`ACC-RF`,data$`ACC-ANN`, paired = TRUE)
 
 ### Question 2.4 
-# not sure if it should beb paired t-test or not
-t.test(data$`ACC-RF`[data$NumFeatures>100],data$`ACC-RF`[data$NumFeatures<=100], paired = TRUE)
-t.test(data$`ACC-ANN`[data$NumFeatures>100],data$`ACC-ANN`[data$NumFeatures<=100], paired = TRUE)
+## RF
+var.test(data$`ACC-RF`[data$NumFeatures>100],data$`ACC-RF`[data$NumFeatures<=100]) # the variance are not the same
+t.test(data$`ACC-RF`[data$NumFeatures>100],data$`ACC-RF`[data$NumFeatures<=100], var.equal = FALSE)
+## ANN
+
+var.test(data$`ACC-ANN`[data$NumFeatures>100],data$`ACC-ANN`[data$NumFeatures<=100])
+t.test(data$`ACC-ANN`[data$NumFeatures>100],data$`ACC-ANN`[data$NumFeatures<=100], var.equal = FALSE)
 
 ### Question 2.5
 t.test(data$`ACC-RF`, mu=85.6 , alt="two.sided", conf.level = 0.95)
