@@ -38,9 +38,12 @@ CLASS_NAMES = np.array([item.name for item in data_dir.glob('*') if item.name !=
 
 #chooose model
 
-module_selection = ("mobilenet_v2_100_224", 224) 
+#MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/feature_vector/4".format(handle_base)
+
+
+module_selection = ("nasnet_large", 331) 
 handle_base, pixels = module_selection
-MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/feature_vector/4".format(handle_base)
+MODULE_HANDLE ="https://tfhub.dev/google/imagenet/nasnet_large/classification/4".format(handle_base)
 IMAGE_SIZE = (pixels, pixels)
 print("Using {} with input size {}".format(MODULE_HANDLE, IMAGE_SIZE))
 
