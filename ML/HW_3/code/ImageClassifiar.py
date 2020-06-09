@@ -25,27 +25,6 @@ print("GPU is", "available" if tf.test.is_gpu_available() else "NOT AVAILABLE")
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 
-#pathGlobalVarbial
-
-data_dir = '../data/images'
-data_dir = pathlib.Path(data_dir)
-
-
-#get labels
-label = scipy.io.loadmat('../data/imagelabels.mat')["labels"].T
-#plt.hist(label,bins = 102)
-CLASS_NAMES = np.array([item.name for item in data_dir.glob('*') if item.name != "LICENSE.txt"])
-
-#chooose model
-
-#model 1 [imagenet/mobilenet_v2_100_224/feature_vector] https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/feature_vector/4
-#model 2 [imagenet/nasnet_large/classification] -https://tfhub.dev/google/imagenet/nasnet_large/classification/4  ##331 px
-module_selection = ("nasnet_large", 331) 
-handle_base, pixels = module_selection
-MODULE_HANDLE ="https://tfhub.dev/google/imagenet/nasnet_large/classification/4".format(handle_base)
-IMAGE_SIZE = (pixels, pixels)
-print("Using {} with input size {}".format(MODULE_HANDLE, IMAGE_SIZE))
-
 '''
 create dir for all images with the class names
 
@@ -63,6 +42,28 @@ create dir for all images with the class names
 #         os.makedirs(directory) 
 #     shutil.move(imagePath, directory)
 '''
+
+#pathGlobalVarbial
+
+data_dir = '../data/images'
+data_dir = pathlib.Path(data_dir)
+
+
+#get labels
+label = scipy.io.loadmat('../data/imagelabels.mat')["labels"].T
+#plt.hist(label,bins = 102)
+CLASS_NAMES = np.array([item.name for item in data_dir.glob('*') if item.name != "LICENSE.txt"])
+
+#chooose model
+
+#model 1 [imagenet/mobilenet_v2_100_224/feature_vector] https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/feature_vector/4
+#model 2 [imagenet/nasnet_large/classification] -https://tfhub.dev/google/imagenet/nasnet_large/classification/4  ##331 px
+module_selection = ("mobilenet_v2_100_224", 224) 
+handle_base, pixels = module_selection
+MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/feature_vector/4".format(handle_base)
+IMAGE_SIZE = (pixels, pixels)
+print("Using {} with input size {}".format(MODULE_HANDLE, IMAGE_SIZE))
+
 
 
 
@@ -129,25 +130,24 @@ for _ in tqdm(labeled_ds.enumerate()):
     DATASET_SIZE+=1
 
 BATCH_SIZE = 32 
-labeled_ds.batch(BATCH_SIZE)
 train_size = int(0.7 * DATASET_SIZE)
 val_size = int(0.15 * DATASET_SIZE)
 test_size = int(0.15 * DATASET_SIZE)
 
+
+labeled_ds = prepare_for_training(labeled_ds)
+
 train_dataset = labeled_ds.take(train_size)
-train_dataset.batch(BATCH_SIZE)
-test_dataset = labeled_ds.skip(train_size)
-val_dataset = labeled_ds.skip(test_size)
-val_dataset.batch(BATCH_SIZE)
-test_dataset = labeled_ds.take(test_size)
+val_dataset = labeled_ds.skip(train_size)
+test_dataset = labeled_ds.skip(val_size)
+val_dataset = labeled_ds.take(val_size)
 
 
 
+# train_dataset = prepare_for_training(train_dataset)
+# val_dataset = prepare_for_training(val_dataset)
 
-train_dataset = prepare_for_training(train_dataset)
-val_dataset = prepare_for_training(val_dataset)
-
-test_dataset = prepare_for_training(test_dataset)
+# test_dataset = prepare_for_training(test_dataset)
 
 #model
 
@@ -209,48 +209,6 @@ plt.legend()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# data_dir = tf.keras.utils.get_file(
-#     'flower_photos',
-#     'https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz',
-#     untar=True)
-
-# datagen_kwargs = dict(rescale=1./255, validation_split=.20)
-# dataflow_kwargs = dict(target_size=IMAGE_SIZE, batch_size=BATCH_SIZE,
-#                    interpolation="bilinear")
-
-# valid_datagen = tf.keras.preprocessing.image.ImageDataGenerator(
-#     **datagen_kwargs)
-# valid_generator = valid_datagen.flow_from_directory(
-#     data_dir, subset="validation", shuffle=False, **dataflow_kwargs)
-
-# do_data_augmentation = False 
-# if do_data_augmentation:
-#   train_datagen = tf.keras.preprocessing.image.ImageDataGenerator(
-#       rotation_range=40,
-#       horizontal_flip=True,
-#       width_shift_range=0.2, height_shift_range=0.2,
-#       shear_range=0.2, zoom_range=0.2,
-#       **datagen_kwargs)
-# else:
-#   train_datagen = valid_datagen
-# train_generator = train_datagen.flow_from_directory(
-#     data_dir, subset="training", shuffle=True, **dataflow_kwargs)
 
 
 
