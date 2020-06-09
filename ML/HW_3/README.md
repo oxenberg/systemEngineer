@@ -5,24 +5,31 @@
 we used 2 model:
 - **model_1**: imagenet/nasnet_large/classification, [link] (https://tfhub.dev/google/imagenet/nasnet_large/classification/4)
 - **model_2**: imagenet/mobilenet_v2_100_224/feature_vector, [link] (https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/feature_vector/4)
+			 : [article](https://arxiv.org/pdf/1801.04381.pdf)
 
 
 ## results
 -------------
-model  |accuracy | loss | epcoh |
------- | ------- | -----|-------|
-1      | 0.8259  |1.6051| 5     |
-2      | 0.9410  |1.2423| 5     |
+model  |train/val/test |accuracy -test | accuracy -val |accuracy -train| loss - test | epcoh |
+------ |-------------- | ------------- |-------------- |-------------- | ------------|-------|
+1      |0.7/0.15/0.15  |     0.8259    |accuracy -Test |accuracy -Test |   1.6051    |   5   |
+2      |0.7/0.15/0.15  |     0.9410    |     0.9457    |     0.8909    |   1.2423    |   5   |
+2      |0.3/0.3/0.4    |     0.8664    |     0.8742    |     0.8026    |   1.5016    |   5   |
 
 
 ### grapths
 -------------
 
 #### model1
+##### 0.7/0.15/0.15
 ![](https://github.com/oxenberg/systemEngineer/blob/master/ML/HW_3/graphs/model_1/acc.png)
 ![](https://github.com/oxenberg/systemEngineer/blob/master/ML/HW_3/graphs/model_1/loss.png)
 
 #### model2
+##### 0.7/0.15/0.15
 ![](https://github.com/oxenberg/systemEngineer/blob/master/ML/HW_3/graphs/model_2/acc.png)
 ![](https://github.com/oxenberg/systemEngineer/blob/master/ML/HW_3/graphs/model_2/loss.png)
 
+##### 0.3/0.3/0.4
+![](https://github.com/oxenberg/systemEngineer/blob/master/ML/HW_3/graphs/model_2/acc2.png)
+![](https://github.com/oxenberg/systemEngineer/blob/master/ML/HW_3/graphs/model_2/loss2.png)

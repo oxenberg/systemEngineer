@@ -130,9 +130,9 @@ for _ in tqdm(labeled_ds.enumerate()):
     DATASET_SIZE+=1
 
 BATCH_SIZE = 32 
-train_size = int(0.7 * DATASET_SIZE)
-val_size = int(0.15 * DATASET_SIZE)
-test_size = int(0.15 * DATASET_SIZE)
+train_size = int(0.3 * DATASET_SIZE)
+val_size = int(0.3 * DATASET_SIZE)
+test_size = int(0.4 * DATASET_SIZE)
 
 
 labeled_ds = prepare_for_training(labeled_ds)
