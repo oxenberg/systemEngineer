@@ -58,9 +58,9 @@ CLASS_NAMES = np.array([item.name for item in data_dir.glob('*') if item.name !=
 
 #model 1 [imagenet/mobilenet_v2_100_224/feature_vector] https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/feature_vector/4
 #model 2 [imagenet/nasnet_large/classification] -https://tfhub.dev/google/imagenet/nasnet_large/classification/4  ##331 px
-module_selection = ("mobilenet_v2_100_224", 224) 
+module_selection = ("nasnet_large", 331) 
 handle_base, pixels = module_selection
-MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/feature_vector/4".format(handle_base)
+MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/classification/4".format(handle_base)
 IMAGE_SIZE = (pixels, pixels)
 print("Using {} with input size {}".format(MODULE_HANDLE, IMAGE_SIZE))
 
@@ -130,9 +130,9 @@ for _ in tqdm(labeled_ds.enumerate()):
     DATASET_SIZE+=1
 
 BATCH_SIZE = 32 
-train_size = int(0.3 * DATASET_SIZE)
-val_size = int(0.3 * DATASET_SIZE)
-test_size = int(0.4 * DATASET_SIZE)
+train_size = int(0.7 * DATASET_SIZE)
+val_size = int(0.15 * DATASET_SIZE)
+test_size = int(0.15 * DATASET_SIZE)
 
 
 labeled_ds = prepare_for_training(labeled_ds)
@@ -178,7 +178,7 @@ steps_per_epoch = train_size // BATCH_SIZE
 validation_steps = val_size // BATCH_SIZE
 hist = model.fit(
     train_dataset,
-    epochs=5, steps_per_epoch=steps_per_epoch,
+    epochs=8, steps_per_epoch=steps_per_epoch,
     validation_data=val_dataset,
     validation_steps=validation_steps).history
 
