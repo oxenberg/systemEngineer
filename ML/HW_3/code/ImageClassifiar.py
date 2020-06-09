@@ -38,9 +38,8 @@ CLASS_NAMES = np.array([item.name for item in data_dir.glob('*') if item.name !=
 
 #chooose model
 
-#MODULE_HANDLE ="https://tfhub.dev/google/imagenet/{}/feature_vector/4".format(handle_base)
-
-
+#model 1 [imagenet/mobilenet_v2_100_224/feature_vector] https://tfhub.dev/google/imagenet/mobilenet_v2_100_224/feature_vector/4
+#model 2 [imagenet/nasnet_large/classification] -https://tfhub.dev/google/imagenet/nasnet_large/classification/4  ##331 px
 module_selection = ("nasnet_large", 331) 
 handle_base, pixels = module_selection
 MODULE_HANDLE ="https://tfhub.dev/google/imagenet/nasnet_large/classification/4".format(handle_base)
@@ -190,7 +189,7 @@ predictions = model.evaluate(test_dataset,use_multiprocessing = True,steps = ste
 plt.figure()
 plt.ylabel("Loss (training and validation)")
 plt.xlabel("Training Steps")
-plt.ylim([0,2])
+plt.ylim([0,5])
 plt.plot(hist["loss"], label ="train" )
 plt.plot(hist["val_loss"], label ="val")
 plt.legend()
