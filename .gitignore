@@ -1,0 +1,17 @@
+
+*.xml
+ML/HW_1/.idea/HW_1.iml
+*.pyc
+ML/HW_2/venv/Lib/site-packages/certifi-2020.4.5.1.dist-info/INSTALLER
+ML/HW_2/venv/Lib/site-packages/certifi-2020.4.5.1.dist-info/METADATA
+ML/HW_2/venv/Lib/site-packages/certifi-2020.4.5.1.dist-info/LICENSE
+ML/HW_2/venv/Lib/site-packages/certifi-2020.4.5.1.dist-info/RECORD
+ML/HW_2/venv/Lib/site-packages/certifi-2020.4.5.1.dist-info/WHEEL
+*.txt
+*.py
+*.pem
+*.rst
+ML/HW_2/venv/Lib/site-packages/chardet-3.0.4.dist-info/INSTALLER
+ML/HW_2/venv/Lib/site-packages/chardet-3.0.4.dist-info/METADATA
+*.json
+ML/HW_2/venv/Lib/site-packages/chardet-3.0.4.dist-info/RECORD
