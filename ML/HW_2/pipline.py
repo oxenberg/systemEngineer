@@ -1,6 +1,7 @@
 ## all imports 
 import numpy as np 
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.impute import SimpleImputer
 from skopt import BayesSearchCV
 from sklearn.preprocessing import StandardScaler
@@ -22,6 +23,8 @@ from keras.layers.core import Dense, Dropout
 from keras.optimizers import SGD
 from keras.layers import Dropout
 from mlxtend.classifier import EnsembleVoteClassifier,StackingCVClassifier
+
+import pickle
 
 from kaggle.api.kaggle_api_extended import KaggleApi
 API = KaggleApi({"username":"oroxenberg","key":"538527cfd22bdb19ae607236e4b44cc8"})
@@ -63,7 +66,7 @@ def preprocess(train,test):
     
     #handle missing value
     n = data.notnull()
-    precentNotNull = 0.8
+    precentNotNull = 0.01
     data = data.loc[:, n.mean() > precentNotNull]
     
     catCol = []
@@ -134,9 +137,11 @@ def cor_selector(X, y,num_feats):
     cor_support = [True if i in cor_feature else False for i in feature_name]
     return cor_support, cor_feature
 
+def saveModel(model,num):
+     filename = f'finalized_model{num}.sav'
+     pickle.dump(model, open(filename, 'wb'))
 
-
-# --------- load the data ---------
+############### --------- main ---------###########################
 missing_values = ["n/a", "Nane", "nan","Null"]
 
 train = pd.read_csv('./data/train.CSV', na_values = missing_values)
@@ -234,8 +239,8 @@ def build_model(nodes1=10,nodes2=10,nodes3=10, lr=0.001,lyers1=1,lyers2=1,lyers3
     for l in range(lyers3):
         model.add(Dense(nodes3,activation=activation))
     model.add(Dense(1, activation='sigmoid'))
-
-    opt = keras.optimizers.SGD(lr=lr)
+    
+    opt = keras.optimizers.Adam(learning_rate=lr)
     model.compile(loss='binary_crossentropy',
                   optimizer=opt, metrics=['accuracy'])
 
@@ -333,9 +338,9 @@ nodes1 = [500,700,1000]
 nodes2 = [300,400,500]
 nodes3 = [100,200,300]# number of nodes in the hidden layer
 lrs = [0.001, 0.002, 0.003] # learning rate, default = 0.001
-Lyers1 = [1,2,3]
-Lyers2 = [1,2,3]
-Lyers3 = [1,2]
+Lyers1 = [1,2,3,4]
+Lyers2 = [1,2,3,4]
+Lyers3 = [1,2,3]
 # activationfuncs = ['relu']
 
 epochs = 10
@@ -360,7 +365,7 @@ Lyers3_lr = 0
 epochs_lr = 8
 batch_size_lr = 16
 
-lr = KerasClassifier(build_fn=build_model, epochs = epochs_lr, batch_size = batch_size_lr, lyers3 = Lyers3_lr, input_shape = 14)
+lr = LogisticRegression()
 lr._estimator_type = "Classifier"
 
 svc = StackingCVClassifier(classifiers=[clf1,clf2,clf3,clf4,clf5,clf6, clf7],meta_classifier=lr,random_state=42,use_probas=True, verbose = 1)
@@ -372,14 +377,12 @@ distributions = { 'logisticregression__C': list(np.arange(0.1,1)), 'xgbclassifie
                  'gradientboostingclassifier__n_estimators':[50, 100, 200], 'gradientboostingclassifier__max_depth': list(np.arange(3, 10)), 'gradientboostingclassifier__min_samples_split':list(np.arange(2, 10)), 
                  'randomforestclassifier__n_estimators':[40, 100, 200],'randomforestclassifier__min_samples_split':list(np.arange(2, 10)), 
                  'kerasclassifier__nodes1': nodes1,'kerasclassifier__nodes2': nodes2,'kerasclassifier__nodes3': nodes3, 'kerasclassifier__lr':lrs , 'kerasclassifier__lyers1' : Lyers1,
-                 'kerasclassifier__lyers2' : Lyers2,'kerasclassifier__lyers3' : Lyers3 , 
-                'meta_classifier__nodes1' : nodes1_lr,'meta_classifier__nodes2' : nodes2_lr,'meta_classifier__lyers1' : Lyers1_lr,'meta_classifier__lyers2' : Lyers2_lr,
-                  'meta_classifier__lr' : lrs_lr }
-
+                 'kerasclassifier__lyers2' : Lyers2,'kerasclassifier__lyers3' : Lyers3 , "meta_classifier__C" :  list(np.arange(0.1,1))
+                }
+ # 'meta_classifier__nodes1' : nodes1_lr,'meta_classifier__nodes2' : nodes2_lr,'meta_classifier__lyers1' : Lyers1_lr,'meta_classifier__lyers2' : Lyers2_lr,
+ #                  'meta_classifier__lr' : lrs_lr
 # 'kerasclassifier__activation' : activationfuncs,'meta_classifier__activation' : activationfuncs_lr,'meta_classifier__lyers2' : Lyers2_lr,
-
-
-clf = BayesSearchCV(svc, distributions,n_iter = 1, random_state=42, verbose = 10, cv=2)
+clf = BayesSearchCV(svc, distributions,n_iter = 10, random_state=42, verbose = 10, cv=10)
 fit = clf.fit(X, Y)
 sorted(fit.cv_results_.keys())
 fit.cv_results_
@@ -399,11 +402,145 @@ testModel(clf, X, Y)
 
 #---------submit---------
 
+saveModel(clf,1)
+
 checkScore(clf,40, test)
 
 bestVals  = dict(clf.best_params_)
 
-pd.DataFrame(bestVals, index=[1,]).to_csv("log.csv",mode='a',header=False)
+hyperParam = pd.DataFrame(bestVals, index=[1,])
+
+hyperParam.to_csv("log.csv",mode='a',header=True)
+
+
+
+
+
+#---------analayze---------
+
+
+X = pd.read_csv("./dataAfterPreProcess/train_x.csv")
+Y = pd.read_csv("./dataAfterPreProcess/train_y.csv")
+
+loaded_model = pickle.load(open("./models/finalized_model3.sav", 'rb'))
+
+
+
+
+
+#create stacking model again for shap
+import shap
+from sklearn import model_selection
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB 
+from sklearn.ensemble import RandomForestClassifier
+from mlxtend.classifier import StackingCVClassifier
+import numpy as np
+import warnings
+
+warnings.simplefilter('ignore')
+
+epochs = 10
+batch_size = 32
+
+clf1 = LogisticRegression()
+clf2 = xgb.XGBClassifier()
+clf3 = AdaBoostClassifier()
+clf4 = GradientBoostingClassifier()
+clf5 = RandomForestClassifier()
+clf6 = KerasClassifier(build_fn=build_model, epochs = epochs, batch_size = batch_size,lr = 0.002,lyers1 = 1, lyers2 = 1, lyers3 = 3, nodes1 = 700, nodes2 = 300, nodes3 = 200)
+clf6._estimator_type = "Classifier"
+
+clf7 =  GaussianNB()
+
+lr = LogisticRegression(C = 0.1)
+
+svc = StackingCVClassifier(classifiers=[clf1,clf2,clf3,clf4,clf5,clf6, clf7],meta_classifier=lr,random_state=42,use_probas=True, verbose = 1)
+
+
+print('3-fold cross validation:\n')
+
+for clf, label in zip([clf1, clf2, clf3,clf4,clf5,clf6,clf7 ,svc], 
+                      ['Log', 
+                       'XGB', 
+                       'AdaBoost',
+                       'GradientBoost',
+                       'RF',
+                       'NN',
+                       'GaussianNB',
+                       'Stacking']):
+
+    scores = model_selection.cross_val_score(clf, X,Y, 
+                                              cv=3, scoring='accuracy')
+    clf.fit(X,Y)
+    print("Accuracy: %0.2f (+/- %0.2f) [%s]" 
+          % (scores.mean(), scores.std(), label))
+
+
+
+
+#---------explainabilty---------
+
+
+#shap
+row_to_show = 458
+data_for_prediction = X.iloc[row_to_show]
+
+explainer = shap.TreeExplainer(clf5)
+# Calculate Shap values
+shap_values = explainer.shap_values(data_for_prediction)
+shap.initjs()
+shap.force_plot(explainer.expected_value[1], shap_values[1], data_for_prediction)
+
+
+explainer = shap.TreeExplainer(clf5)
+shap_values = explainer.shap_values(test)
+
+shap.summary_plot(shap_values, test)
+
+
+shap.force_plot(shap_values.expected_value[1],shap_values[1][17,:], test_random.iloc[17,:])
+
+shap.dependence_plot('A112', shap_values[1],test, interaction_index="A452") 
+
+
+## roc_curve 
+from sklearn.metrics import roc_curve, auc,roc_auc_score
+
+
+y_score = svc.predict_proba(X)
+
+y_test = Y.values
+
+fpr, tpr, _ = roc_curve(y_test,  y_score[:,1],pos_label=True)
+auc = roc_auc_score(y_test, y_score[:,1])
+
+
+plt.figure()
+lw = 2
+plt.plot(fpr, tpr, color='darkorange',
+         lw=lw, label='ROC curve')
+plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title(f'ROC curve with {round(auc,2)} AUC')
+plt.legend(loc="lower right")
+plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
