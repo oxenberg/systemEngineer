@@ -1,2 +1,5 @@
 infiniteboost
 classification_datasets
+data/results/
+data/ClassificationAllMetaFeatures.csv
+final.pdf
