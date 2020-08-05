@@ -39,3 +39,21 @@ In order to run the code there a few neccesary steps:
 `$ pip install -r requirments.txt` 
 
 4. run main.py from code folder
+
+### Documentation
+#### Python Files 
+
+1. CompareAlgo - The file contains the code for the part C of the project - examining and comparing all algorithms on the 150 classification datasets. This part includes the preprocessing we need to do for the datasets (complete missing values, encode label columns and deal with problametic labels), running all the algorithms on all datasets using RandomizedSearchCV and saving all measures to file. 
+
+2. Statistics - The File contains the code for part D of the project - the Friedman's Test and the post-hoc tests we did on the data. 
+
+3. MetaClassifier - The file contains the code for Part E of the project - extracting the leading algorithm for each dataset, building and running the MetaClassifier and extracting the importance measures. 
+
+4. main - The main file of the project - responsible of connecting and running all parts of the project. 
+
+5. RestoreData - The file will help us restore the data in case we had any errors and our data is distributed between multiple files. Full instruction on how to use the code are presented in the file itself. 
+
+6. infoGraphic - The file contains the code for all the graphs we added in the conclusions part in the report. 
+
+#### Errors 
+
