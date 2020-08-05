@@ -37,7 +37,7 @@ Hyperparameters -
 7. min_samples_leaf : int, float, optional (default=1)
 8. criterion : string, optional (default="mse"). The function to measure the quality of a split.
 9. kernel : string, default="rbf". Kernel function used for kernel boosting. 
-10.theta : float, default: 1. Range parameter of the kernel functions which determines how fast the kernel function decays with distance.
+10. theta : float, default: 1. Range parameter of the kernel functions which determines how fast the kernel function decays with distance.
 11. n_neighbors : int, default: None. If the range parameter 'theta' is not given, it can be determined from the data using this parameter. 
 12. alphaReg : float, default: 1. Regularization parameter for kernel Ridge regression boosting updates.
 13. nystroem : boolean, default=None. Indicates whether Nystroem sampling is used or not for kernel boosting.
