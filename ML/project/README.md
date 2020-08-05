@@ -25,6 +25,8 @@ NGBoost is a Python library that implements Natural Gradient Boosting, as descri
 
 [Paper](https://arxiv.org/abs/1910.03225)
 
+Hyperparameters - 
+
 ### Quick Start
 In order to run the code there a few neccesary steps: 
 
@@ -51,9 +53,13 @@ In order to run the code there a few neccesary steps:
 
 4. main - The main file of the project - responsible of connecting and running all parts of the project. 
 
-5. RestoreData - The file will help us restore the data in case we had any errors and our data is distributed between multiple files. Full instruction on how to use the code are presented in the file itself. 
+5. restoreData - The file will help us restore the data in case we had any errors and our data is distributed between multiple files. Full instruction on how to use the code are presented in the file itself. 
 
 6. infoGraphic - The file contains the code for all the graphs we added in the conclusions part in the report. 
 
 #### Errors 
 
+Collecting the measures for the first part of the project is done while appending the data to a file. During our run we encountered errors with some of the datasets, and had to resume the code to collect the rest of the data. When it happened, we saved the data collected so far in the folder data/backup and changed the name to "measuresPart{i}", where i is the number of the file. 
+In case of errors with running the first part of the project (in the compareAlgo part), you should move the data file to the data/backup folder, and change the file name. After completing the entire run of the model in the first part, you will need to run the restoreData file with the instructions there. After completing this procedure, you will be able to run the rest of the project. 
+
+We will mention That there are no errors in the code that we know of. The code crushed for us in the last algorithm, in the 10 cv in one of the datasets - so we resumed the run from this point forward. 
