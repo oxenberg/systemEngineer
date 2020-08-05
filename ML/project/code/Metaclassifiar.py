@@ -8,8 +8,8 @@ import pandas as pd
 import json
 import xgboost as xgb
 from sklearn.metrics import roc_auc_score,accuracy_score
-
-
+import matplotlib.pyplot as plt
+import shap
 
 
 ###global
@@ -45,7 +45,7 @@ def TranformReslut(measuers_input,metaFeatures):
     metadata = pd.merge(winAlgo, metaFeatures, on='Dataset_Name', how='left')
     
     #check mismatched after merge
-    if metadata.isnull().values.any():
+    if metadata["Dataset_Name"].isnull().values.any():
         raise Exception("Sorry... need to fix mismatched columns")
     
     return metadata
@@ -69,7 +69,7 @@ def ReadResults():
             
     """
     #read measuers_input
-    measuers_input = pd.read_pickle('../data/results/measuers_pickle.csv')
+    measuers_input = pd.read_csv('../data/results/measuers.csv') ##change
     measuers_input["HP_vals"] = measuers_input["HP_vals"].apply(lambda x : json.loads(x.replace("\'", "\"")))
     
     #read metaFeatures
@@ -116,14 +116,26 @@ def preprocess(metadata):
     return metadata
 
 
-
-
-def calcMeasures(metadata,xgb_model):   
+def createDataForModel(data):
+    """convert dataframe to array and create the label array
+        
+        ----------
+        data : {dataFrame} 
+        Returns
+        -------
+        X,y : {array like} 
+        
+    """
+    y = data.pop("win").values
+    X = data.values
+    X = X[:,1:]
+    return X,y
+    
+def calcMeasures(metadata):   
     """calculate the xgboost model over all the datasets with leave on out and get the measures and export to csv
         
         ----------
         metadata : {dataFrame} 
-        xgb_model : {xgb sklearn}          
         Returns
         -------
         metadata : {dataFrame} 
@@ -132,18 +144,16 @@ def calcMeasures(metadata,xgb_model):
     allDatasets = metadata["Dataset_Name"].unique()
     measuers = pd.DataFrame(columns = ["dataset_name","ACC","AUC","importance_cover","importance_gain","importance_weight","shap"])
     index = 0
+    #leave one out
     for dataset in allDatasets:
         metadataTest = metadata[ metadata["Dataset_Name"] == dataset]
         metadataTrain = metadata[ metadata["Dataset_Name"] != dataset]
         
-        y_train = metadataTrain.pop("win").values
-        X_train = metadataTrain.values
-        y_test = metadataTest.pop("win").values
-        X_test = metadataTest.values
-        
-        X_train =X_train[:,1:]
-        X_test = X_test[:,1:]
-        
+        X_train,y_train = createDataForModel(metadataTrain)
+        X_test,y_test = createDataForModel(metadataTest)
+        ##model
+        xgb_model = xgb.XGBClassifier()
+
         xgb_model.fit(X_train,y_train)
         y_pred = xgb_model.predict(X_test)
         y_pred_proba = xgb_model.predict_proba(X_test)
@@ -162,9 +172,26 @@ def calcMeasures(metadata,xgb_model):
 
         measuers.to_csv("../data/results/measuers_meta.csv")
         measuers.to_pickle('../data/results/measuers_meta_pickle.csv')
-        
+    
+    #claclulate importances
+    X,y = createDataForModel(metadata)
+    ##model
+    xgb_model = xgb.XGBClassifier()
+    xgb_model.fit(X,y)
+    importance_types = ["cover","gain","weight"]
+    #crete plots of importance types amd save them
+    for importance in importance_types:
+        ax = xgb.plot_importance(xgb_model.get_booster(), importance_type=importance,max_num_features = 10,show_values = False,title = f'importance by {importance}')
+        ax.figure.savefig(f'../figures/importances_meta/{importance}.png')
+    #shap
+    fig = plt.figure()
+    mybooster = xgb_model
+    explainer = shap.TreeExplainer(mybooster)
+    shap_values = explainer.shap_values(X)
+    shap.summary_plot(shap_values, X, plot_type="bar")
 
-
+    
+    
 def runMetaclassifier():
     """main for this moudle
         
@@ -178,8 +205,9 @@ def runMetaclassifier():
 
     metadata = preprocess(metadata)
 
-    ##model
-    xgb_model = xgb.XGBClassifier()
     
-    calcMeasures(metadata,xgb_model)
+    calcMeasures(metadata)
 
+
+
+ReadResults()

@@ -382,7 +382,7 @@ def RunModels(models,allDataSetsPaths):
                 #add row to the measuerment table
                 classes = np.unique(y)
                 Dataname = datasetName.split("\\")[1].split(".")[0]
-                measuers.loc[index] = clacMeasure(RS,X_train,X_test,y_train,y_test, datasetName,AlgoName, cvIndex, classes, multiclass)
+                measuers.loc[index] = clacMeasure(RS,X_train,X_test,y_train,y_test, Dataname,AlgoName, cvIndex, classes, multiclass)
                 cvIndex+=1
                 index+=1
         #     del clf
@@ -427,5 +427,24 @@ def CompereAlgo(testTrainCV = 2 ,trainValCV = 2,randomSearchIter = 2,debug = Fal
     
 
 # CompereAlgo()
+
+def setClassColumn(data,names):
+    columns = data.columns
+    indexOfClass = np.where(columns.str.lower().isin(names) == True)
+    if len(indexOfClass[0]) == 0:
+        return
+    columns = list(columns)
+    pos1 = indexOfClass[0][0]
+    pos2 = len(columns)-1
+    data[columns[pos1]], data[columns[pos2]] = data[columns[pos2]], data[columns[pos1]] 
+    columns[pos1], columns[pos2] = columns[pos2], columns[pos1] 
+    data.columns = columns
+    
+test = pd.read_csv(getsDataPaths()[115])
+
+
+setClassColumn(test,["class"])
+
+
 
 
