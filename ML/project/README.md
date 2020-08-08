@@ -71,7 +71,9 @@ In order to run the code there a few neccesary steps:
 
 `$ pip install -r requirments.txt` 
 
-4. run main.py from code folder
+4. Create a data folder and put all datasets in the folder. The folder should be at the root directory of this git repository. 
+
+5. run main.py from code folder
 
 ### Documentation
 #### Python Files 
@@ -93,4 +95,4 @@ In order to run the code there a few neccesary steps:
 Collecting the measures for the first part of the project is done while appending the data to a file. During our run we encountered errors with some of the datasets, and had to resume the code to collect the rest of the data. When it happened, we saved the data collected so far in the folder data/backup and changed the name to "measuresPart{i}", where i is the number of the file. 
 In case of errors with running the first part of the project (in the compareAlgo part), you should move the data file to the data/backup folder, and change the file name. After completing the entire run of the model in the first part, you will need to run the restoreData file with the instructions there. After completing this procedure, you will be able to run the rest of the project. 
 
-We will mention That there are no errors in the code that we know of. The code crushed for us in the last algorithm, in the 10 cv in one of the datasets - so we resumed the run from this point forward. 
+We will mention that there are no errors in the code that we know of. The code crushed for us in the last algorithm, in the 10 cv in one of the datasets - so we resumed the run from this point forward. 
