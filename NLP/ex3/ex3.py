@@ -12,7 +12,7 @@ import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, f1_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
 import numpy as np
@@ -216,7 +216,7 @@ def create_vocab(data, window_size):
     
     #tweets size hist
     lengts = [len(tweet) for tweet in tweets]
-    plt.hist(lengts,bins = 300)
+    # plt.hist(lengts,bins = 300)
     
     entire_text = [word for tweet in tweets for word in tweet]
     vocab = set(entire_text)
@@ -348,6 +348,8 @@ def evaluate(model, iterator, criterion):
 
     epoch_loss = 0
     epoch_acc = 0
+    epoch_f1 = 0
+    epoch_recall = 0
     
     model.eval()
     
@@ -360,11 +362,18 @@ def evaluate(model, iterator, criterion):
             loss = criterion(predictions, batch.label)
             
             acc = binary_accuracy(predictions, batch.label)
+            
+            predictions = torch.round(torch.sigmoid(predictions))
+            f1 = f1_score(batch.label, predictions, average='weighted')
+            recall = recall_score(batch.label,predictions , average='weighted')
 
             epoch_loss += loss.item()
             epoch_acc += acc.item()
+            epoch_f1 += f1
+            epoch_recall += recall
         
-    return epoch_loss / len(iterator), epoch_acc / len(iterator)
+    return (epoch_loss / len(iterator), epoch_acc / len(iterator),
+     epoch_f1 / len(iterator), epoch_recall / len(iterator))
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -387,6 +396,7 @@ def main():
                       "LSTM_epochs" :1}
     
     train,test = preprocess()
+    
     embedding_model = create_embedder(train, embeddings_params, general_params)
     if CREATE_EMBEDING:
         #:create  input vectors:
@@ -399,25 +409,32 @@ def main():
     
     X = train["features"].to_list()
     y = train["label"].to_list()
-    
+    scoring = ['f1','accuracy', 'recall']     
     
 
     
-    ## Logistic regression classifier
+    # # Logistic regression classifier
     # LR_clf = LogisticRegression(random_state=0)
-    # cv_results_LR = cross_validate(LR_clf, X, y, cv=5)
-    # print(cv_results_LR['test_score'])
+
+    # cv_results_LR = cross_validate(LR_clf, X, y, cv=5, scoring = scoring)
+    # print(f"f1: {np.mean(cv_results_LR['test_f1'])},acc: {np.mean(cv_results_LR['test_accuracy'])}, recall: {np.mean(cv_results_LR['test_recall'])}")
 
 
-    # SVC
+    # # SVC
     # SVC_clf = SVC(gamma='auto',kernel = "linear")
-    # cv_results_SVC = cross_validate(SVC_clf, X, y, cv=5)
-    # print(cv_results_SVC['test_score'])
+    # cv_results_SVC = cross_validate(SVC_clf, X, y, cv=5, scoring = scoring)
+    # print(f"f1: {np.mean(cv_results_SVC['test_f1'])},acc: {np.mean(cv_results_SVC['test_accuracy'])}, recall: {np.mean(cv_results_SVC['test_recall'])}")
 
     # SVC_k_clf = SVC(gamma='auto')
-    # cv_results_SVC_k = cross_validate(SVC_k_clf, X, y, cv=5)
-
-    # print(cv_results_SVC_k['test_score'])
+    # cv_results_SVC_k = cross_validate(SVC_k_clf, X, y, cv=5, scoring = scoring)
+    # print(f"f1: {np.mean(cv_results_SVC_k['test_f1'])},acc: {np.mean(cv_results_SVC_k['test_accuracy'])}, recall: {np.mean(cv_results_SVC_k['test_recall'])}")
+    
+    ## GradientBoostingClassifier
+    
+    # GB_clf = GradientBoostingClassifier(random_state=0)
+    # cv_results_GB = cross_validate(GB_clf, X, y, cv=5, scoring = scoring)
+    # print(f"f1: {np.mean(cv_results_GB['test_f1'])},acc: {np.mean(cv_results_GB['test_accuracy'])}, recall: {np.mean(cv_results_GB['test_recall'])}")
+    
     
     ##NN
     # y_nn = [[1,0] if yi==0 else [0, 1] for yi in y ]
@@ -453,11 +470,6 @@ def main():
     
     
 
-    ## GradientBoostingClassifier
-    
-    # GB_clf = GradientBoostingClassifier(max_depth=2, random_state=0)
-    # cv_results_GB = cross_validate(GB_clf, X, y, cv=5)
-    # print(cv_results_GB['test_score'])
     
     ## LSTM
     tt = TweetTokenizer()
@@ -512,7 +524,7 @@ def main():
     
 
     
-    N_EPOCHS = 100
+    N_EPOCHS = 1
 
     # best_valid_loss = float('inf')
     
@@ -538,13 +550,17 @@ def main():
         
     # model.load_state_dict(torch.load('tut1-model.pt'))
 
-    test_loss, test_acc = evaluate(model, test_iterator, criterion)
+    test_loss, test_acc, test_f1, test_recall = evaluate(model, test_iterator, criterion)
 
-    print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc*100:.2f}%') 
+    print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc:.2f} | Test F1: {test_f1:.2f} | Test recall: {test_recall:.2f}') 
+    
+    
     
 if __name__=='__main__':
     
-    main()    
+    main() 
+
+    
     
 
     
