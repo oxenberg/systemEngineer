@@ -48,12 +48,11 @@ TRAIN_MODEL = False
 CREATE_EMBEDING = False
 
 class RNN(nn.Module):
-    def __init__(self, input_dim, embedding_dim, hidden_dim, output_dim, embedding_model):
+    def __init__(self, input_dim,output_dim, embedding_dim, hidden_dim):
         
         super().__init__()
-        self.embedding = embedding_model.embeddings
-        # self.embedding = nn.Embedding(input_dim, embedding_dim)
-        self.rnn = nn.RNN(embedding_model.embeddings.embedding_dim, hidden_dim)
+        self.embedding = nn.Embedding(input_dim, embedding_dim)
+        self.rnn = nn.RNN(self.embedding.embedding_dim, hidden_dim)
         self.fc = nn.Linear(hidden_dim, output_dim)
         
     def forward(self, text):
@@ -130,9 +129,10 @@ class LSTM(nn.Module):
 
 class NN(nn.Module):
 
-    def __init__(self,input_size, output_size, layers, p=0.1):
+    def __init__(self,input_size, output_size, layers,NN_epochs, p=0.1):
         super().__init__()
-     
+        
+        self.NN_epochs = NN_epochs
         all_layers = []
         for i in layers:
             all_layers.append(nn.Linear(input_size, i))
@@ -147,7 +147,40 @@ class NN(nn.Module):
     def forward(self, inputs):
         x = self.layers(inputs)
         return x
-
+    def train_model(self,X_train,y_train):
+        losses = []
+        loss_function = nn.MSELoss()
+        optimizer = optim.SGD(self.parameters(), lr=0.001)
+        
+        for epoch in range(self.NN_epochs):
+            self.zero_grad()
+            # total_loss = 0
+           
+            predctions = self(torch.tensor(X_train))
+            
+            loss = loss_function(predctions, torch.tensor(y_train, dtype=torch.float))
+    
+            loss.backward()
+            optimizer.step()
+        
+            losses.append(loss.item())
+        self.losses = losses
+    def evaluate(self,X_test,y_test):
+        with torch.no_grad():
+            y_val = self(torch.tensor(X_test))
+        y_val = np.argmax(y_val, axis=1)
+        y_test = np.argmax(np.array(y_test), axis=1)
+    
+        metrics = classification_report(y_test,y_val,output_dict=True)
+        metrics = pd.DataFrame(metrics).transpose()
+        
+        #: transform metrices to result format
+        result = {}
+        result["test_f1"] = metrics["f1-score"]["weighted avg"]
+        result["test_accuracy"] = metrics["support"]["accuracy"]
+        result['test_recall'] = metrics["recall"]["weighted avg"]
+        return result
+     
 
 class CBOW(nn.Module):
 
@@ -328,15 +361,10 @@ def train_func(model, iterator, optimizer, criterion):
     for batch in iterator:
         
         optimizer.zero_grad()
-                
         predictions = model(batch.text).squeeze(1)
-        
         loss = criterion(predictions, batch.label)
-        
         acc = binary_accuracy(predictions, batch.label)
-        
         loss.backward()
-        
         optimizer.step()
         
         epoch_loss += loss.item()
@@ -371,9 +399,119 @@ def evaluate(model, iterator, criterion):
             epoch_acc += acc.item()
             epoch_f1 += f1
             epoch_recall += recall
+    
+    
+    result = {}
+    result["test_f1"] =epoch_f1 / len(iterator)
+    result["test_accuracy"] = epoch_acc / len(iterator)
+    result['test_recall'] = epoch_recall / len(iterator)
+    return epoch_loss / len(iterator),result
+
+def preprocess_LSTM(train,batch_size,split_by = 0.8):
+    tt = TweetTokenizer()
+    TEXT = data.Field(tokenize = (lambda s: tt.tokenize(s)))
+    LABEL = data.LabelField(dtype = torch.float)
+    
+    fields = [('text', TEXT), ('label', LABEL)]
+    examples = []
+    for i, row in train.iterrows():
+        label = row["label"]
+        text = row['tweet_text']
+        examples.append(data.Example.fromlist([text, label], fields))
         
-    return (epoch_loss / len(iterator), epoch_acc / len(iterator),
-     epoch_f1 / len(iterator), epoch_recall / len(iterator))
+    train_dataset = Dataset(examples, fields)
+
+    train_data, test_data = train_dataset.split(split_by)
+    MAX_VOCAB_SIZE = 25000
+    
+    TEXT.build_vocab(train_data, max_size = MAX_VOCAB_SIZE)
+    LABEL.build_vocab(train_data)
+    train_iterator, test_iterator = data.BucketIterator.splits(
+        (train_data, test_data), 
+        batch_size = batch_size,
+        sort_key= lambda x:len(x.text), 
+        sort_within_batch=False)
+    return train_iterator,test_iterator
+
+def train_LSTM(model,train_iterator,LSTM_params):
+    optimizer = optim.SGD(model.parameters(), lr=1e-3)
+    criterion = nn.BCEWithLogitsLoss()
+    for epoch in range(LSTM_params["N_EPOCHS"]):
+         
+        start_time = time.time()
+        
+        train_loss, train_acc = train_func(model, train_iterator, optimizer, criterion)
+        
+        end_time = time.time()
+    
+        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+        
+        print(f'Epoch: {epoch+1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
+        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.2f}%')
+        
+    return criterion
+
+
+def run_ML_models(train,test,run_LR,run_linear_SVM,
+                  run_SVM,run_NN,run_LSTM,run_boosting,
+                  NN_params,LSTM_params):
+    #: prepare x,y for basic models (LR,SVM,boosting)
+    X = train["features"].to_list()
+    y = train["label"].to_list()
+    scoring = ['f1','accuracy', 'recall'] 
+    
+    all_models_results = {}
+    
+    #: Logistic regression classifier
+    if run_LR:
+        LR_clf = LogisticRegression(random_state=0)
+        cv_results_LR = cross_validate(LR_clf, X, y, cv=5, scoring = scoring)
+        #:add to all models data
+        all_models_results["LR"] = cv_results_LR
+    
+    
+    #: SVC
+    if run_linear_SVM:
+        SVC_clf = SVC(gamma='auto',kernel = "linear")
+        cv_results_SVC = cross_validate(SVC_clf, X, y, cv=5, scoring = scoring)
+        all_models_results["SVM_linear"] = cv_results_SVC
+    if run_SVM:
+        SVC_k_clf = SVC(gamma='auto')
+        cv_results_SVC_k = cross_validate(SVC_k_clf, X, y, cv=5, scoring = scoring)
+        all_models_results["SVM"] = cv_results_SVC_k
+    
+    #: GradientBoostingClassifier
+    if run_boosting:
+        GB_clf = GradientBoostingClassifier(random_state=0)
+        cv_results_GB = cross_validate(GB_clf, X, y, cv=5, scoring = scoring)
+        all_models_results["GB"] = cv_results_GB
+    
+    #: NN
+    if run_NN:
+        y_nn = [[1,0] if yi==0 else [0, 1] for yi in y ]
+        X_train, X_test, y_train, y_test = train_test_split(X, y_nn, test_size=0.2, random_state=42)
+        ##NN
+        nn_clf = NN(len(X_train[0]),2, **NN_params)
+        nn_clf.train_model(X_train,y_train)
+        all_models_results["NN"]  = nn_clf.evaluate(X_test,y_test)
+
+    if run_LSTM:
+        ## LSTM
+        train_iterator,test_iterator = preprocess_LSTM(train,LSTM_params["BATCH_SIZE"])
+        
+        INPUT_DIM = len(train_iterator.dataset.fields["text"].vocab)
+
+        OUTPUT_DIM = 1
+      
+        model= RNN(INPUT_DIM,OUTPUT_DIM, LSTM_params["EMBEDDING_DIM"], LSTM_params["HIDDEN_DIM"])
+        criterion = train_LSTM(model,train_iterator,LSTM_params)
+        test_loss, result = evaluate(model, test_iterator, criterion)
+        
+        all_models_results["LSTM"] = result
+            
+    return all_models_results
+    
+        
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -395,6 +533,26 @@ def main():
                       "NN_epochs": 2500, 
                       "LSTM_epochs" :1}
     
+    debug_params = {"run_LR": True,
+                    "run_linear_SVM": True,
+                    "run_SVM": True,
+                    "run_boosting": True,
+                    "run_NN": True,
+                    "run_LSTM": True}
+    
+    NN_params = {"NN_epochs" : 100,
+                 "layers" :[524,128],
+                 "p":0.1}
+    LSTM_params = {"NN_epochs" : 1,
+                   "BATCH_SIZE" : 10,
+                   "EMBEDDING_DIM"  :10,
+                   "HIDDEN_DIM" : 124,
+                   "N_EPOCHS": 1}
+    
+    deepNet_params = {"NN_params": NN_params,
+                      "LSTM_params": LSTM_params}
+    
+    #: start preprocess over all the tweets in the train data
     train,test = preprocess()
     
     embedding_model = create_embedder(train, embeddings_params, general_params)
@@ -405,155 +563,11 @@ def main():
         with open('embedingData.pickle', 'rb') as handle:
             train = pickle.load(handle)
 
-        
+    #: run the all models no preprocessed data
+    results = run_ML_models(train,test,**debug_params,**deepNet_params)
     
-    X = train["features"].to_list()
-    y = train["label"].to_list()
-    scoring = ['f1','accuracy', 'recall']     
-    
-
-    
-    # # Logistic regression classifier
-    # LR_clf = LogisticRegression(random_state=0)
-
-    # cv_results_LR = cross_validate(LR_clf, X, y, cv=5, scoring = scoring)
-    # print(f"f1: {np.mean(cv_results_LR['test_f1'])},acc: {np.mean(cv_results_LR['test_accuracy'])}, recall: {np.mean(cv_results_LR['test_recall'])}")
-
-
-    # # SVC
-    # SVC_clf = SVC(gamma='auto',kernel = "linear")
-    # cv_results_SVC = cross_validate(SVC_clf, X, y, cv=5, scoring = scoring)
-    # print(f"f1: {np.mean(cv_results_SVC['test_f1'])},acc: {np.mean(cv_results_SVC['test_accuracy'])}, recall: {np.mean(cv_results_SVC['test_recall'])}")
-
-    # SVC_k_clf = SVC(gamma='auto')
-    # cv_results_SVC_k = cross_validate(SVC_k_clf, X, y, cv=5, scoring = scoring)
-    # print(f"f1: {np.mean(cv_results_SVC_k['test_f1'])},acc: {np.mean(cv_results_SVC_k['test_accuracy'])}, recall: {np.mean(cv_results_SVC_k['test_recall'])}")
-    
-    ## GradientBoostingClassifier
-    
-    # GB_clf = GradientBoostingClassifier(random_state=0)
-    # cv_results_GB = cross_validate(GB_clf, X, y, cv=5, scoring = scoring)
-    # print(f"f1: {np.mean(cv_results_GB['test_f1'])},acc: {np.mean(cv_results_GB['test_accuracy'])}, recall: {np.mean(cv_results_GB['test_recall'])}")
-    
-    
-    ##NN
-    # y_nn = [[1,0] if yi==0 else [0, 1] for yi in y ]
-    # X_train, X_test, y_train, y_test = train_test_split(X, y_nn, test_size=0.2, random_state=42)
-
-         
-    # layers = [524,128]
-    # nn_clf = NN(len(X_train[0]),2, layers)
-    # losses = []
-    # loss_function = nn.MSELoss()
-    # optimizer = optim.SGD(nn_clf.parameters(), lr=0.001)
-    
-    # for epoch in range(general_params["NN_epochs"]):
-    #     nn_clf.zero_grad()
-    #     # total_loss = 0
-       
-    #     predctions = nn_clf(torch.tensor(X_train))
-        
-    #     loss = loss_function(predctions, torch.tensor(y_train, dtype=torch.float))
-
-    #     loss.backward()
-    #     optimizer.step()
-    
-    #     losses.append(loss.item())
-
-
-    # with torch.no_grad():
-    #     y_val = nn_clf(torch.tensor(X_test))
-    # y_val = np.argmax(y_val, axis=1)
-    # y_test = np.argmax(np.array(y_test), axis=1)
-
-    # print(classification_report(y_test,y_val))
-    
-    
-
-    
-    ## LSTM
-    tt = TweetTokenizer()
-    TEXT = data.Field(tokenize = (lambda s: tt.tokenize(s)))
-    LABEL = data.LabelField(dtype = torch.float)
-    
-    fields = [('text', TEXT), ('label', LABEL)]
-    examples = []
-    for i, row in train.iterrows():
-        label = row["label"]
-        text = row['tweet_text']
-        examples.append(data.Example.fromlist([text, label], fields))
-        
-    train_dataset = Dataset(examples, fields)
-
-    train_data, test_data = train_dataset.split(0.8)
-    
-    print(f'Number of training examples: {len(train_data)}')
-    print(f'Number of testing examples: {len(test_data)}')
-    
-    MAX_VOCAB_SIZE = 25000
-
-    TEXT.build_vocab(train_data, max_size = MAX_VOCAB_SIZE)
-    LABEL.build_vocab(train_data)
-
-    print(f"Unique tokens in TEXT vocabulary: {len(TEXT.vocab)}")
-    print(f"Unique tokens in LABEL vocabulary: {len(LABEL.vocab)}")
-    
-    BATCH_SIZE = 64
-    INPUT_DIM = len(TEXT.vocab)
-    EMBEDDING_DIM = 100
-    HIDDEN_DIM = 256
-    OUTPUT_DIM = 1
-
-    device = torch.device('cpu')
-
-    train_iterator, test_iterator = data.BucketIterator.splits(
-    (train_data, test_data), 
-    batch_size = BATCH_SIZE,
-    sort_key= lambda x:len(x.text), 
-    sort_within_batch=False,
-    device = device)
-    
-  
-    model = RNN(INPUT_DIM, EMBEDDING_DIM, HIDDEN_DIM, OUTPUT_DIM, embedding_model)
-
-
-    print(f'The model has {count_parameters(model):,} trainable parameters')
-    
-    optimizer = optim.SGD(model.parameters(), lr=1e-3)
-    criterion = nn.BCEWithLogitsLoss()
-    
-
-    
-    N_EPOCHS = 1
-
-    # best_valid_loss = float('inf')
-    
-    for epoch in range(N_EPOCHS):
-    
-        start_time = time.time()
-        
-        train_loss, train_acc = train_func(model, train_iterator, optimizer, criterion)
-        # valid_loss, valid_acc = evaluate(model, valid_iterator, criterion)
-        
-        end_time = time.time()
-    
-        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
-        
-        # if valid_loss < best_valid_loss:
-        #     best_valid_loss = valid_loss
-        #     torch.save(model.state_dict(), 'tut1-model.pt')
-        
-        print(f'Epoch: {epoch+1:02} | Epoch Time: {epoch_mins}m {epoch_secs}s')
-        print(f'\tTrain Loss: {train_loss:.3f} | Train Acc: {train_acc*100:.2f}%')
-        # print(f'\t Val. Loss: {valid_loss:.3f} |  Val. Acc: {valid_acc*100:.2f}%')
-        
-        
-    # model.load_state_dict(torch.load('tut1-model.pt'))
-
-    test_loss, test_acc, test_f1, test_recall = evaluate(model, test_iterator, criterion)
-
-    print(f'Test Loss: {test_loss:.3f} | Test Acc: {test_acc:.2f} | Test F1: {test_f1:.2f} | Test recall: {test_recall:.2f}') 
-    
+    for name, result in results.items():
+        print(f" {name} \n f1: {np.mean(result['test_f1'])},acc: {np.mean(result['test_accuracy'])}, recall: {np.mean(result['test_recall'])}")
     
     
 if __name__=='__main__':
@@ -564,46 +578,5 @@ if __name__=='__main__':
     
 
     
-## RNN
-    
-    # lstm_clf = LSTM(embedding_model)
-    # loss_function = nn.MSELoss()
-    # optimizer = optim.SGD(lstm_clf.parameters(), lr=0.001)
-    
-    # train_data=train.sample(frac=0.8,random_state=200) #random state is a seed value
-    # test_data=train.drop(train_data.index)
-
-    # y_test = test_data["label"].to_list()
-    
-    
-    # for epoch in tqdm(range(general_params["LSTM_epochs"])):  # again, normally you would NOT do 300 epochs, it is toy data
-    #     for idx, row in train_data.iterrows() :
-    #         # Step 1. Remember that Pytorch accumulates gradients.
-    #         # We need to clear them out before each instance
-    #         lstm_clf.zero_grad()
-    #         # print(f"text:{row['tweet_text']}, label: {row['label']}")
-    
-    
-    #         # Step 3. Run our forward pass.
-    #         output_scores = lstm_clf(row["tweet_text"])
-            
-    
-    #         # Step 4. Compute the loss, gradients, and update the parameters by
-    #         #  calling optimizer.step()
-    #         loss = loss_function(output_scores, torch.tensor(row["label"], dtype = torch.float).view(1,-1))
-    #         print(loss.item())
-    #         loss.backward()
-    #         optimizer.step()
-    
-    # y_val = []
-    # original_values = []
-    # with torch.no_grad():
-    #     for idx, row in test_data.iterrows():
-    #         output_scores = lstm_clf(row["tweet_text"])
-    #         original_values.append(output_scores.item())
-    #         y_val.append(round(output_scores.item()))
-    # print(classification_report(y_test,y_val))
-    
-    # return y_val, original_values
 
     
