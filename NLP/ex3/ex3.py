@@ -7,7 +7,11 @@ This is a temporary script file.
 
 
 import pandas as pd
-import matplotlib.pyplot as plt
+import numpy as np
+import re
+import pickle 
+import csv
+import time
 import sklearn
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate
@@ -15,7 +19,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, f1_score, recall_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import GradientBoostingClassifier
-import numpy as np
+from sklearn.manifold import TSNE
 from sklearn.svm import SVC
 from torchtext import data
 from torchtext.data import Field, TabularDataset, BucketIterator, Dataset
@@ -26,11 +30,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.autograd import Variable
-import re
 from nltk.tokenize import TweetTokenizer
-import pickle 
-import csv
-import time
+import matplotlib.pyplot as plt
+import seaborn as sns
+
 
 torch.manual_seed(1)
 
@@ -165,6 +168,7 @@ class NN(nn.Module):
         
             losses.append(loss.item())
         self.losses = losses
+        
     def evaluate(self,X_test,y_test):
         with torch.no_grad():
             y_val = self(torch.tensor(X_test))
@@ -269,6 +273,7 @@ def create_vocab(data, window_size):
     
 def load_best_model():
     """returning your best performing model that was saved as part of the submission bundle."""
+    
     return None
 def train_best_model():
     """training a classifier from scratch (should be the same classifier and parameters returned by load_best_model().
@@ -281,6 +286,11 @@ def predict(m, fn):
     """ this function does expect parameters. m is the trained model and fn is the full path to a file in the same format as the test set (see above).
     predict(m, fn) returns a list of 0s and 1s, corresponding to the lines in the specified file.  
     """
+    columns = ["user_handle", "tweet_text", "time_stamp"]
+    #:reading data files
+    test  = pd.read_csv(TEST_FILE_NAME,sep='\t', engine='python',names = columns,quoting=csv.QUOTE_NONE)  
+    m.predict(test)
+    
     return None
 
 def create_embedder(train_data, embeddings_params, general_params):
@@ -460,6 +470,19 @@ def run_ML_models(train,test,run_LR,run_linear_SVM,
     y = train["label"].to_list()
     scoring = ['f1','accuracy', 'recall'] 
     
+    ### Dimensionality reduction
+    
+    X_embedded = TSNE(n_components=2).fit_transform(X)
+    
+    plt.figure(figsize=(16,10))
+    sns.scatterplot(
+    x=X_embedded[:,0], y=X_embedded[:,1],
+    hue=y,
+    palette=sns.color_palette("hls", 2),
+    legend="full",
+    alpha=0.3
+)
+    
     all_models_results = {}
     
     #: Logistic regression classifier
@@ -475,6 +498,7 @@ def run_ML_models(train,test,run_LR,run_linear_SVM,
         SVC_clf = SVC(gamma='auto',kernel = "linear")
         cv_results_SVC = cross_validate(SVC_clf, X, y, cv=5, scoring = scoring)
         all_models_results["SVM_linear"] = cv_results_SVC
+        §
     if run_SVM:
         SVC_k_clf = SVC(gamma='auto')
         cv_results_SVC_k = cross_validate(SVC_k_clf, X, y, cv=5, scoring = scoring)
@@ -533,16 +557,17 @@ def main():
                       "NN_epochs": 2500, 
                       "LSTM_epochs" :1}
     
-    debug_params = {"run_LR": True,
-                    "run_linear_SVM": True,
-                    "run_SVM": True,
-                    "run_boosting": True,
-                    "run_NN": True,
-                    "run_LSTM": True}
+    debug_params = {"run_LR": False,
+                    "run_linear_SVM": False,
+                    "run_SVM": False,
+                    "run_boosting": False,
+                    "run_NN": False,
+                    "run_LSTM": False}
     
     NN_params = {"NN_epochs" : 100,
                  "layers" :[524,128],
                  "p":0.1}
+    
     LSTM_params = {"NN_epochs" : 1,
                    "BATCH_SIZE" : 10,
                    "EMBEDDING_DIM"  :10,
