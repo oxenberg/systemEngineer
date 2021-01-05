@@ -95,9 +95,12 @@ def learn_params(tagged_sentences):
       [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B] (a list)
     """
     
-    #TODO complete transitionCounts,emissionCounts,A,B
+    # TODO check if we use the dummy tags right
+    transitionCounts[END] = Counter()
+    transitionCounts[START] = Counter()
     
     for sentence in tagged_sentences:
+        previous_tag = START
         for word,tag in sentence:
             #: count tags
             allTagCounts[tag] +=1
@@ -105,9 +108,41 @@ def learn_params(tagged_sentences):
             #: check if the not word in perWordTagCounts dict
             if word not in perWordTagCounts:
                 perWordTagCounts[word] = Counter()
+            # if previous_tag not in transitionCounts: 
+            #     transitionCounts[previous_tag] = Counter()
+            if tag not in emissionCounts:
+                emissionCounts[tag] = Counter()
+                transitionCounts[tag] = Counter()
             #: count tags
             perWordTagCounts[word][tag] +=1
-                
+            transitionCounts[previous_tag][tag]+=1
+            emissionCounts[tag][word] +=1 
+            previous_tag = tag
+            
+        transitionCounts[previous_tag][END]+=1
+        
+
+    
+    A = transitionCounts.copy()
+    B = emissionCounts.copy()
+    
+    #: filling A
+    for tag, dictOfTags in A.items():
+        dictOfTags = {k:(log(v/allTagCounts[tag]) if allTagCounts[tag]>0 else 0) for k,v in dictOfTags.items()}
+        A[tag] = dictOfTags
+    
+    for tag, dictOfWords in B.items():
+        dictOfWords = {k:log(v/allTagCounts[tag]) for k,v in dictOfWords.items()}
+        B[tag] = dictOfWords
+    
+    #: Handling padding values
+    emissionCounts[START] = Counter({'<start>':len(tagged_sentences)})
+    emissionCounts[END] = Counter({'<end>':len(tagged_sentences)})   
+    # A[START]['<start>'] = 0
+    # A[END]['<end>'] = 0
+    
+    B[UNK] = {}
+    B[UNK]['<UNKNOWN>'] = 0
     
     return [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B]
 
@@ -134,7 +169,7 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
             tag = perWordTagCounts[word].most_common(1)[0][0]
         else:
             counts = np.array(list(allTagCounts.values()))
-            counts = counts/max(counts)
+            counts = counts/sum(counts)
             all_tags = list(allTagCounts.keys())
             tag = np.random.choice(all_tags, p=counts)
         tagged_sentence.append((word,tag))
@@ -414,8 +449,19 @@ def count_correct(gold_sentence, pred_sentence):
         pred_sentence (list): list of pairs, tags are predicted by tagger
 
     """
+    correct = 0
+    correctOOV = 0
+    OOV = 0
     assert len(gold_sentence)==len(pred_sentence)
-
-    #TODO complete the code
+    
+    for gold_tuple, pred_tuple in zip(gold_sentence, pred_sentence): 
+        word = gold_tuple[0]
+        if gold_tuple[1]==pred_tuple[1]:
+            correct +=1            
+            if word not in perWordTagCounts: 
+                correctOOV +=1
+        else: 
+            if word not in perWordTagCounts: 
+                OOV +=1
 
     return correct, correctOOV, OOV
