@@ -241,7 +241,7 @@ def viterbi(sentence, A,B):
         #         current list = [ the dummy item ]
         # Hint 3: end the sequence with a dummy: the highest-scoring item with the tag END
 
-    sentence = [word if word else UNK in perWordTagCounts.keys() for word in sentence] + [END]
+    sentence = [word if word in perWordTagCounts.keys() else UNK for word in sentence] + [END]
     
     states = list(allTagCounts.keys()) 
     
@@ -255,7 +255,10 @@ def viterbi(sentence, A,B):
     
     #: initialize first column
     first_word = sentence[0]
-    first_column_optional_tags = list(perWordTagCounts[first_word].keys())
+    if first_word == UNK: 
+        first_column_optional_tags = states
+    else: 
+        first_column_optional_tags = list(perWordTagCounts[first_word].keys())
     
     for tag in first_column_optional_tags: 
         row_index = states.index(tag)
@@ -270,10 +273,13 @@ def viterbi(sentence, A,B):
     
     for i in range(1, len(sentence[:-1])):
         word = sentence[i]
-        if word ==UNK: 
+        if word == UNK: 
             optional_tags = states
         else:
-            optional_tags = list(perWordTagCounts[word].keys())
+            try:
+                optional_tags = list(perWordTagCounts[word].keys())
+            except:
+                print('b')
         for tag in optional_tags: 
             row_index = states.index(tag)
             
@@ -286,7 +292,9 @@ def viterbi(sentence, A,B):
             viterbi_matrix[row_index][i] = (tag, best_state_index, probability)
             
     #add the end to calculation
-    tag, best_state_index, probability = predict_next_best(END,END,viterbi_matrix,A,B)
+    t_viterbi_matrix = list(zip(*viterbi_matrix))
+    # t_viterbi_matrix_cut = t_viterbi_matrix[:i+1]
+    tag, best_state_index, probability = predict_next_best(END,END,t_viterbi_matrix,A,B)
     viterbi_matrix.append([(tag, best_state_index, probability)])
         
     return viterbi_matrix
@@ -298,23 +306,23 @@ def retrace(viterbi_matrix):
         list of words in the sentence (same indices).
     """
     chosen_tags = []
-    row_index = -1
     column_index = -1
-    tag = viterbi_matrix[row_index][column_index][0]
+    row_index = viterbi_matrix[-1][column_index][1]
+    viterbi_matrix = viterbi_matrix[:-1]
     xx = list(zip(*viterbi_matrix))
     while row_index!=START:
-        print(f"tag {tag}")
-        print(f"row,column : {(row_index,column_index)}")
-        print(f"item: {viterbi_matrix[row_index][column_index]}")
 
+        # print(f"row,column : {(row_index,column_index)}")
+        # print(f"item: {viterbi_matrix[row_index][column_index]}")
+        tag = viterbi_matrix[row_index][column_index][0]
+        # print(f"tag {tag}")
         row_index = viterbi_matrix[row_index][column_index][1]
         column_index -= 1
-        tag = viterbi_matrix[row_index][column_index][0]
 
         chosen_tags.append(tag)
     
     #:remove the start token and reverse the list
-    chosen_tags = chosen_tags[:-1]
+    # chosen_tags = chosen_tags[]
     chosen_tags.reverse()
     
     return chosen_tags
@@ -327,7 +335,6 @@ def predict_next_best(word, tag, viterbi_matrix,A,B):
     
     new_list = []
     for previous_tag_cell in viterbi_matrix[-1]:
-        print(previous_tag_cell)
         try:
             transision_proba = A[previous_tag_cell[0]][tag]
         except: #: we didn't see tag_t after tag_t-1
