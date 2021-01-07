@@ -14,17 +14,17 @@ pred_sentence = [w[0] for w in gold_sentence]
 print(f"tested sentence is {gold_sentence} of length {len(pred_sentence)}")
 
 tagged_sentence = tagger.baseline_tag_sentence(pred_sentence, perWordTagCounts, allTagCounts)
-# correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
+correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
 
-# print(f"correct: {correct}, correctOOV: {correctOOV}, OOV: {OOV}")
+print(f"correct: {correct}, correctOOV: {correctOOV}, OOV: {OOV}")
 
 
-# score_nom, score_denom = 0, 0
-# for gold_sentence in dev_data:
-#     pred_sentence = [w[0] for w in gold_sentence]
-#     tagged_sentence = tagger.baseline_tag_sentence(pred_sentence, perWordTagCounts, allTagCounts)
-#     correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
-#     score_nom += correct
-#     score_denom += len(pred_sentence)
+score_nom, score_denom = 0, 0
+for gold_sentence in dev_data:
+    pred_sentence = [w[0] for w in gold_sentence]
+    tagged_sentence = tagger.baseline_tag_sentence(pred_sentence, perWordTagCounts, allTagCounts)
+    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
+    score_nom += correct
+    score_denom += len(pred_sentence)
 
-# print(f"baseline score is {score_nom/score_denom}")
+print(f"baseline score is {score_nom/score_denom}")
