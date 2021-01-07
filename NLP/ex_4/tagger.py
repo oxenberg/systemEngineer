@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torchtext import data
 import torch.optim as optim
-from math import log, isfinite
+from math import log, isfinite, inf
 from collections import Counter
 import numpy as np
 import sys, os, time, platform, nltk, random
@@ -96,12 +96,13 @@ def learn_params(tagged_sentences):
     """
     
     # TODO check if we use the dummy tags right
-    transitionCounts[END] = Counter()
     transitionCounts[START] = Counter()
+    all_words_count = 0
     
     for sentence in tagged_sentences:
         previous_tag = START
         for word,tag in sentence:
+            all_words_count +=1
             #: count tags
             allTagCounts[tag] +=1
             
@@ -126,21 +127,30 @@ def learn_params(tagged_sentences):
     A = transitionCounts.copy()
     B = emissionCounts.copy()
     
+    
     #: filling A
     for tag, dictOfTags in A.items():
-        dictOfTags = {k:(log(v/allTagCounts[tag]) if allTagCounts[tag]>0 else 0) for k,v in dictOfTags.items()}
-        A[tag] = dictOfTags
+        newDictOfTags = {}
+        for keyTag in dictOfTags: 
+            if tag == START or tag ==END:
+                newDictOfTags[keyTag] = log(dictOfTags[keyTag]/len(tagged_sentences))
+            elif allTagCounts[tag]==0:
+                newDictOfTags[keyTag] = 0
+            else:
+                newDictOfTags[keyTag] = log(dictOfTags[keyTag]/allTagCounts[tag])
+        A[tag] = newDictOfTags
     
+    #: filling B
     for tag, dictOfWords in B.items():
         dictOfWords = {k:log(v/allTagCounts[tag]) for k,v in dictOfWords.items()}
         B[tag] = dictOfWords
+        B[tag][UNK] = allTagCounts[tag]/all_words_count
     
     #: Handling padding values
-    emissionCounts[START] = Counter({'<start>':len(tagged_sentences)})
-    emissionCounts[END] = Counter({'<end>':len(tagged_sentences)})   
+    emissionCounts[START] = Counter({START:len(tagged_sentences)})
+    emissionCounts[END] = Counter({END:len(tagged_sentences)})   
     # A[START]['<start>'] = 0
     # A[END]['<end>'] = 0
-    
     B[UNK] = {}
     B[UNK]['<UNKNOWN>'] = 0
     
@@ -160,8 +170,6 @@ def baseline_tag_sentence(sentence, perWordTagCounts, allTagCounts):
         Return:
         list: list of pairs
     """
-
-    #TODO complete the code
     
     tagged_sentence = []
     for word in sentence:
@@ -195,8 +203,15 @@ def hmm_tag_sentence(sentence, A, B):
     Return:
         list: list of pairs
     """
-
-    #TODO complete the code
+    viterbi_matrix = viterbi(sentence,A,B)
+    tags = retrace(viterbi_matrix)
+    tagged_sentence = []
+    
+    assert len(sentence) == len(tags)
+    for i in range(len(sentence)):
+        word = sentence[i]
+        tag = tags[i]
+        tagged_sentence.append((word,tag))
 
     return tagged_sentence
 
@@ -226,17 +241,80 @@ def viterbi(sentence, A,B):
         #         current list = [ the dummy item ]
         # Hint 3: end the sequence with a dummy: the highest-scoring item with the tag END
 
-
-    #TODO complete the code
-
-    return v_last
+    sentence = [word if word else UNK in perWordTagCounts.keys() for word in sentence] + [END]
+    
+    states = list(allTagCounts.keys())
+    
+    viterbi_matrix = []
+    for i in range(len(states)):
+        row = []
+        for j in range(len(sentence)):
+            row.append((states[i],0,np.NINF))
+        viterbi_matrix.append(row)
+        
+    viterbi_matrix = asarray(viterbi_matrix)
+    # viterbi_matrix = np.array(viterbi_matrix, dtype = [('tag', np.object), ('r', np.int), ('prob', np.float)])
+    
+    #: initialize first column
+    first_word = sentence[0]
+    first_column_optional_tags = list(perWordTagCounts[first_word].keys())
+    
+    for tag in first_column_optional_tags: 
+        row_index = states.index(tag)
+        b_state_word = B[tag][first_word]
+        try:
+            transition_probability = A[START][tag]
+        except:
+            #TODO make sure the probability is correct
+            transition_probability = 0
+        
+        viterbi_matrix[row_index][0] = (tag, START, transition_probability+b_state_word)
+    
+    for i in range(1, len(sentence)):
+        word = sentence[i]
+        if word ==UNK: 
+            optional_tags = states
+        else:
+            optional_tags = list(perWordTagCounts[word].keys())
+        for tag in optional_tags: 
+            row_index = states.index(tag)
+            #: find max probability
+            for previous_tag_cell in viterbi_matrix[:, i-1]:
+                x = A[previous_tag_cell[0]][tag]
+                y= previous_tag_cell[2]
+            
+            # max_value = max([A[previous_tag_cell[0]][tag]+previous_tag_cell[2] for previous_tag_cell in viterbi_matrix[:, i-1]])
+            #; find max probability relevant previous state index
+            best_state_index = np.argmax([A[previous_tag_cell[0]][tag]+previous_tag_cell[2] for previous_tag_cell in viterbi_matrix[:,i-1]])
+            #: calculate viterbi probability value
+            probability = max_value+B[tag][word]
+            #: fill matrix
+            viterbi_matrix[row_index][i] = (tag, best_state_index, probability)
+        
+    return viterbi_matrix
 
 #a suggestion for a helper function. Not an API requirement
-def retrace(end_item):
+def retrace(viterbi_matrix):
     """Returns a list of tags (retracing the sequence with the highest probability,
         reversing it and returning the list). The list should correspond to the
         list of words in the sentence (same indices).
     """
+    chosen_tags = []
+    row_index = -1
+    column_index = -1
+    tag = viterbi_matrix[row_index][column_index][0]
+    while tag!=START:
+        row_index = viterbi_matrix[row_index][column_index][1]
+        column_index -= 1
+        tag = viterbi_matrix[row_index][column_index][0]
+
+        chosen_tags.append(tag)
+    
+    #:remove the start token and reverse the list
+    chosen_tags = chosen_tags[:-1]
+    chosen_tags.reverse()
+    
+    return chosen_tags
 
 #a suggestion for a helper function. Not an API requirement
 def predict_next_best(word, tag, predecessor_list):
@@ -255,7 +333,13 @@ def joint_prob(sentence, A, B):
      """
     p = 0   # joint log prob. of words and tags
 
-    #TODO complete the code
+    sentence = [(START, START)] + [(word, tag) if word else (UNK, tag) in perWordTagCounts.keys() for word,tag in sentence] + [(END,END)]
+    previous_tag = sentence[0][1]
+    for word, tag in sentence[1:]:
+        if tag in A[previous_tag]:
+            p+=A[previous_tag][tag]
+        p+=B[tag][word]
+        previous_tag = tag
 
     assert isfinite(p) and p<0  # Should be negative. Think why!
     return p
