@@ -243,17 +243,15 @@ def viterbi(sentence, A,B):
 
     sentence = [word if word else UNK in perWordTagCounts.keys() for word in sentence] + [END]
     
-    states = list(allTagCounts.keys())
+    states = list(allTagCounts.keys()) 
     
     viterbi_matrix = []
     for i in range(len(states)):
         row = []
-        for j in range(len(sentence)):
+        for j in range(len(sentence)-1):
             row.append((states[i],0,np.NINF))
         viterbi_matrix.append(row)
         
-    viterbi_matrix = asarray(viterbi_matrix)
-    # viterbi_matrix = np.array(viterbi_matrix, dtype = [('tag', np.object), ('r', np.int), ('prob', np.float)])
     
     #: initialize first column
     first_word = sentence[0]
@@ -270,7 +268,7 @@ def viterbi(sentence, A,B):
         
         viterbi_matrix[row_index][0] = (tag, START, transition_probability+b_state_word)
     
-    for i in range(1, len(sentence)):
+    for i in range(1, len(sentence[:-1])):
         word = sentence[i]
         if word ==UNK: 
             optional_tags = states
@@ -278,18 +276,18 @@ def viterbi(sentence, A,B):
             optional_tags = list(perWordTagCounts[word].keys())
         for tag in optional_tags: 
             row_index = states.index(tag)
-            #: find max probability
-            for previous_tag_cell in viterbi_matrix[:, i-1]:
-                x = A[previous_tag_cell[0]][tag]
-                y= previous_tag_cell[2]
             
-            # max_value = max([A[previous_tag_cell[0]][tag]+previous_tag_cell[2] for previous_tag_cell in viterbi_matrix[:, i-1]])
-            #; find max probability relevant previous state index
-            best_state_index = np.argmax([A[previous_tag_cell[0]][tag]+previous_tag_cell[2] for previous_tag_cell in viterbi_matrix[:,i-1]])
-            #: calculate viterbi probability value
-            probability = max_value+B[tag][word]
-            #: fill matrix
+            # : cut and transpose matrix
+            t_viterbi_matrix = list(zip(*viterbi_matrix))
+            t_viterbi_matrix_cut = t_viterbi_matrix[:i]
+            
+            tag, best_state_index, probability = predict_next_best(word,tag,t_viterbi_matrix_cut,A,B)
+            
             viterbi_matrix[row_index][i] = (tag, best_state_index, probability)
+            
+    #add the end to calculation
+    tag, best_state_index, probability = predict_next_best(END,END,viterbi_matrix,A,B)
+    viterbi_matrix.append([(tag, best_state_index, probability)])
         
     return viterbi_matrix
 
@@ -303,7 +301,12 @@ def retrace(viterbi_matrix):
     row_index = -1
     column_index = -1
     tag = viterbi_matrix[row_index][column_index][0]
-    while tag!=START:
+    xx = list(zip(*viterbi_matrix))
+    while row_index!=START:
+        print(f"tag {tag}")
+        print(f"row,column : {(row_index,column_index)}")
+        print(f"item: {viterbi_matrix[row_index][column_index]}")
+
         row_index = viterbi_matrix[row_index][column_index][1]
         column_index -= 1
         tag = viterbi_matrix[row_index][column_index][0]
@@ -317,10 +320,32 @@ def retrace(viterbi_matrix):
     return chosen_tags
 
 #a suggestion for a helper function. Not an API requirement
-def predict_next_best(word, tag, predecessor_list):
+def predict_next_best(word, tag, viterbi_matrix,A,B):
     """Returns a new item (tupple)
     """
+     #add the end to calculation
+    
+    new_list = []
+    for previous_tag_cell in viterbi_matrix[-1]:
+        print(previous_tag_cell)
+        try:
+            transision_proba = A[previous_tag_cell[0]][tag]
+        except: #: we didn't see tag_t after tag_t-1
+            transision_proba = 1/sum([v for v in A[previous_tag_cell[0]].values()])
+        previous_vitarbi_path = previous_tag_cell[2]
 
+        new_list.append(previous_vitarbi_path+transision_proba)
+    max_value = max(new_list)
+    #; find max probability relevant previous state index
+    best_state_index = np.argmax(new_list)
+    
+    if tag == END:
+        probability = max_value
+    else:
+        probability = max_value+B[tag][word]
+
+    
+    return (tag,best_state_index, probability)
 
 def joint_prob(sentence, A, B):
     """Returns the joint probability of the given sequence of words and tags under
