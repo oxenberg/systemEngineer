@@ -280,10 +280,7 @@ def viterbi(sentence, A,B):
         if word == UNK: 
             optional_tags = states
         else:
-            try:
-                optional_tags = list(perWordTagCounts[word].keys())
-            except:
-                print('b')
+            optional_tags = list(perWordTagCounts[word].keys())
         for tag in optional_tags: 
             row_index = states.index(tag)
             
@@ -395,7 +392,6 @@ class LSTMTagger(nn.Module):
         self.input_dim = vocab_size
         self.output_dim = tagset_size
         self.cased_flag = False
-
         self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
 
         # The LSTM takes word embeddings as inputs, and outputs hidden states
@@ -519,6 +515,8 @@ def case_based_function(word):
         vec = np.array([1,0,0])
     elif word.isupper():
         vec = np.array([0,1,0])
+    elif word == UNK:
+        vec = np.array([0,0,0])
     else:
         vec = np.array([0,0,1])
     return vec
@@ -578,7 +576,8 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     data = load_annotated_corpus(data_fn)
  
     if input_rep == 1:
-        words_case_vector_dict = create_case_based_vectors(data)    
+        words_case_vector_dict = create_case_based_vectors(data)
+         #:dont use the base vector for UNK words
         #TODO make sure it doesn't mess up the weighted matrix
         model.change_to_case_based()
     
@@ -586,7 +585,7 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     #: and converting data to training data - change the list of tuples to a tuple of lists 
     word_to_ix, tag_to_ix, training_data = process_data(data)
     
-    criterion = nn.CrossEntropyLoss() #you can set the parameters as you like
+    criterion = nn.NLLLoss() #you can set the parameters as you like
     
     #TODO remove before submission. leave only the line that creates the vector
     if create_vectors:
@@ -598,7 +597,6 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     weighted_matrix = create_weighted_matrix(word_to_ix, vectors, emb_dim = model.embedding_dim)
     model.load_embeddings(weighted_matrix)
     
-    loss_function = nn.NLLLoss()
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     model.word_to_ix = word_to_ix
     model.tag_to_ix = tag_to_ix
@@ -619,6 +617,7 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     
             # Step 3. Run our forward pass.
             if input_rep == 1:
+                
                 case_based_vectors = torch.tensor([words_case_vector_dict[word] for word in sentence])
                 tag_scores = model(sentence_in, case_based_vectors)
             else:
@@ -626,7 +625,7 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
-            loss = loss_function(tag_scores, targets)
+            loss = criterion(tag_scores, targets)
             loss.backward()
             optimizer.step()
     
@@ -652,12 +651,31 @@ def rnn_tag_sentence(sentence, model, input_rep = 0):
     Return:
         list: list of pairs
     """
+
     word_to_ix = model.word_to_ix
-    sentence_lower = [word.lower() if word in word_to_ix.keys() else UNK for word in sentence]
-    
+    sentence_lower_UNK = []
+    sentence_UNK = []
+    for word in sentence:
+        sentence_lower_UNK_word = sentence_UNK_word = UNK
+
+        lower_word = word.lower()
+        if lower_word in word_to_ix.keys():
+            sentence_UNK_word = word
+            sentence_lower_UNK_word = lower_word
+            
+        sentence_lower_UNK.append(sentence_lower_UNK_word)
+        sentence_UNK.append(sentence_UNK_word)
+
     with torch.no_grad():
-        inputs = prepare_sequence(sentence_lower, word_to_ix)
-        tag_scores = model(inputs)
+        inputs = prepare_sequence(sentence_lower_UNK, word_to_ix)
+        if input_rep == 1:
+            case_based_vectors = torch.tensor([case_based_function(word) for word in sentence_UNK])
+            
+            case_based_vectors = case_based_vectors.to(device)
+            inputs = inputs.to(device)
+            tag_scores = model(inputs,case_based_vectors)
+        else:
+            tag_scores = model(inputs)
     
     tags_idx = np.argmax(tag_scores, axis = 1).tolist()
     
@@ -700,7 +718,6 @@ def create_weighted_matrix(target_vocab, vectors, emb_dim):
             words_found += 1
         except KeyError:
             weights_matrix[i] = np.random.normal(scale=0.6, size=(emb_dim, ))
-    print(words_found)
     return weights_matrix
 
    
