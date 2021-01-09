@@ -99,7 +99,6 @@ def learn_params(tagged_sentences):
       [allTagCounts,perWordTagCounts,transitionCounts,emissionCounts,A,B] (a list)
     """
     
-    # TODO check if we use the dummy tags right
     transitionCounts[START] = Counter()
     all_words_count = 0
     
@@ -113,8 +112,6 @@ def learn_params(tagged_sentences):
             #: check if the not word in perWordTagCounts dict
             if word not in perWordTagCounts:
                 perWordTagCounts[word] = Counter()
-            # if previous_tag not in transitionCounts: 
-            #     transitionCounts[previous_tag] = Counter()
             if tag not in emissionCounts:
                 emissionCounts[tag] = Counter()
                 transitionCounts[tag] = Counter()
@@ -126,8 +123,6 @@ def learn_params(tagged_sentences):
             
         transitionCounts[previous_tag][END]+=1
         
-
-    
     A = transitionCounts.copy()
     B = emissionCounts.copy()
     
@@ -153,8 +148,7 @@ def learn_params(tagged_sentences):
     #: Handling padding values
     emissionCounts[START] = Counter({START:len(tagged_sentences)})
     emissionCounts[END] = Counter({END:len(tagged_sentences)})   
-    # A[START]['<start>'] = 0
-    # A[END]['<end>'] = 0
+
     B[UNK] = {}
     B[UNK]['<UNKNOWN>'] = 0
     
@@ -270,8 +264,7 @@ def viterbi(sentence, A,B):
         try:
             transition_probability = A[START][tag]
         except:
-            #TODO make sure the probability is correct
-            transition_probability = 0
+            transition_probability = 1/sum([v for v in A[START].values()])
         
         viterbi_matrix[row_index][0] = (tag, START, transition_probability+b_state_word)
     
@@ -292,9 +285,8 @@ def viterbi(sentence, A,B):
             
             viterbi_matrix[row_index][i] = (tag, best_state_index, probability)
             
-    #add the end to calculation
+    #: Add the end dummy to calculation
     t_viterbi_matrix = list(zip(*viterbi_matrix))
-    # t_viterbi_matrix_cut = t_viterbi_matrix[:i+1]
     tag, best_state_index, probability = predict_next_best(END,END,t_viterbi_matrix,A,B)
     viterbi_matrix.append([(tag, best_state_index, probability)])
         
@@ -305,6 +297,11 @@ def retrace(viterbi_matrix):
     """Returns a list of tags (retracing the sequence with the highest probability,
         reversing it and returning the list). The list should correspond to the
         list of words in the sentence (same indices).
+        
+        Args: viterbi_matrix that holds all the optional paths
+        
+        Returns: a list of tags (retracing the sequence with the highest probability,
+        reversing it and returning the list)
     """
     chosen_tags = []
     column_index = -1
@@ -312,17 +309,13 @@ def retrace(viterbi_matrix):
     viterbi_matrix = viterbi_matrix[:-1]
     while row_index!=START:
 
-        # print(f"row,column : {(row_index,column_index)}")
-        # print(f"item: {viterbi_matrix[row_index][column_index]}")
         tag = viterbi_matrix[row_index][column_index][0]
-        # print(f"tag {tag}")
         row_index = viterbi_matrix[row_index][column_index][1]
         column_index -= 1
 
         chosen_tags.append(tag)
     
     #:remove the start token and reverse the list
-    # chosen_tags = chosen_tags[]
     chosen_tags.reverse()
     
     return chosen_tags
@@ -330,9 +323,7 @@ def retrace(viterbi_matrix):
 #a suggestion for a helper function. Not an API requirement
 def predict_next_best(word, tag, viterbi_matrix,A,B):
     """Returns a new item (tupple)
-    """
-     #add the end to calculation
-    
+    """    
     new_list = []
     for previous_tag_cell in viterbi_matrix[-1]:
         try:
@@ -343,7 +334,7 @@ def predict_next_best(word, tag, viterbi_matrix,A,B):
 
         new_list.append(previous_vitarbi_path+transision_proba)
     max_value = max(new_list)
-    #; find max probability relevant previous state index
+    #: find max probability relevant previous state index
     best_state_index = np.argmax(new_list)
     
     if tag == END:
@@ -354,7 +345,6 @@ def predict_next_best(word, tag, viterbi_matrix,A,B):
     
     return (tag,best_state_index, probability)
 
-#TODO check that this function works
 def joint_prob(sentence, A, B):
     """Returns the joint probability of the given sequence of words and tags under
      the HMM model.
@@ -366,12 +356,19 @@ def joint_prob(sentence, A, B):
      """
     p = 0   # joint log prob. of words and tags
 
-    sentence = [(START, START)] + [(word, tag) if word else (UNK, tag) in perWordTagCounts.keys() for word,tag in sentence] + [(END,END)]
+    sentence = [(START, START)] + [(word, tag) if word in perWordTagCounts.keys() else (UNK, tag) for word,tag in sentence] + [(END,END)]
     previous_tag = sentence[0][1]
     for word, tag in sentence[1:]:
         if tag in A[previous_tag]:
             p+=A[previous_tag][tag]
-        p+=B[tag][word]
+        else:
+            p+=1/sum(list(A[previous_tag].values()))
+        if tag==END:
+            continue
+        elif word in B[tag]:
+            p+=B[tag][word] 
+        else: 
+            p+=1/sum(B[tag].values())
         previous_tag = tag
 
     assert isfinite(p) and p<0  # Should be negative. Think why!
@@ -392,7 +389,6 @@ class LSTMTagger(nn.Module):
         self.input_dim = vocab_size
         self.output_dim = tagset_size
         self.cased_flag = False
-        self.word_embeddings = nn.Embedding(vocab_size, embedding_dim)
 
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
@@ -415,10 +411,12 @@ class LSTMTagger(nn.Module):
         
         return tag_scores
     
-    def load_embeddings(self, weights_matrix, non_trainable = True):
-         self.word_embeddings.load_state_dict({'weight': torch.from_numpy(weights_matrix)})
-         if non_trainable:
-              self.word_embeddings.weight.requires_grad = False
+    def load_embeddings(self, weights_matrix,vocab_size, non_trainable = True):
+        self.word_embeddings = nn.Embedding(vocab_size, self.embedding_dim)
+        self.input_dim = vocab_size
+        self.word_embeddings.load_state_dict({'weight': torch.from_numpy(weights_matrix)})
+        if non_trainable:
+             self.word_embeddings.weight.requires_grad = False
               
     def change_to_case_based(self):
         self.cased_flag = True
@@ -446,7 +444,7 @@ class LSTMTagger(nn.Module):
 #  5. Think about the way you implement the input representation
 #  6. Consider using different unit types (LSTM, GRU,LeRU)
 
-def initialize_rnn_model(params_d):
+def initialize_rnn_model(params_d, hidden_dim = 32):
     """Returns an lstm model based on the specified parameters.
 
     Args:
@@ -462,9 +460,7 @@ def initialize_rnn_model(params_d):
     Return:
         torch.nn.Module object
     """
-    # TODO check if I can assume the dictionary will include all the values I want
-    params_d['hidden_dim'] = 2
-    
+    params_d['hidden_dim'] = hidden_dim
     model = LSTMTagger(params_d['embedding_dimension'],params_d['input_dimension'],params_d['output_dimension'], params_d['num_of_layers'],params_d['hidden_dim'])  
 
     return model
@@ -485,12 +481,13 @@ def get_model_params(model):
     """
     params_d = {'input_dimension':model.input_dim, 
                 'embedding_dimension':model.embedding_dim, 
-                'num_of_layers': model.hidden_dim, 
-                'output_dimension': model.output_dim}
+                'num_of_layers': model.num_layers, 
+                'output_dimension': model.output_dim,
+                'hidden_dim' : model.hidden_dim}
 
     return params_d
 
-# TODO check the function
+
 def load_pretrained_embeddings(path):
     """ Returns an object with the the pretrained vectors, loaded from the
         file at the specified path. The file format is the same as
@@ -549,8 +546,7 @@ def process_data(data):
         training_data.append((words, tags))
     
     word_to_ix[UNK] = len(word_to_ix)
-    vocab_size = len(word_to_ix)
-    tags_size = len(tag_to_ix)  
+
     
     return word_to_ix, tag_to_ix, training_data
 
@@ -572,13 +568,11 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     # 5. some of the above could be implemented in helper functions (not part of
     #    the required API)
 
-    #TODO complete the code
     data = load_annotated_corpus(data_fn)
  
     if input_rep == 1:
         words_case_vector_dict = create_case_based_vectors(data)
-         #:dont use the base vector for UNK words
-        #TODO make sure it doesn't mess up the weighted matrix
+
         model.change_to_case_based()
     
     #: creating the word_to_ix and tag_to_ix dicts 
@@ -595,14 +589,14 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
         vectors = pickle.load(open('embeddings/vectors.pkl', 'rb'))
     
     weighted_matrix = create_weighted_matrix(word_to_ix, vectors, emb_dim = model.embedding_dim)
-    model.load_embeddings(weighted_matrix)
+    model.load_embeddings(weighted_matrix, len(word_to_ix))
     
     optimizer = optim.SGD(model.parameters(), lr=0.1)
     model.word_to_ix = word_to_ix
     model.tag_to_ix = tag_to_ix
     
     
-    for epoch in range(1):  # again, normally you would NOT do 300 epochs, it is toy data
+    for epoch in range(15):  # again, normally you would NOT do 300 epochs, it is toy data
         for sentence, tags in training_data:
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
@@ -611,15 +605,14 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     
             # Step 2. Get our inputs ready for the network, that is, turn them into
             # Variables of word indices.
-            
             sentence_in = prepare_sequence(sentence, word_to_ix)
             targets = prepare_sequence(tags, tag_to_ix)
     
             # Step 3. Run our forward pass.
             if input_rep == 1:
-                
                 case_based_vectors = torch.tensor([words_case_vector_dict[word] for word in sentence])
                 tag_scores = model(sentence_in, case_based_vectors)
+                
             else:
                 tag_scores = model(sentence_in)
     
@@ -678,14 +671,9 @@ def rnn_tag_sentence(sentence, model, input_rep = 0):
             tag_scores = model(inputs)
     
     tags_idx = np.argmax(tag_scores, axis = 1).tolist()
-    
     idx_tag_dict = {v:k for k,v in model.tag_to_ix.items()}
-    
     predicted_tags = [idx_tag_dict[i] for i in tags_idx]
-    
     tagged_sentence = [(word, tag) for word, tag in zip(sentence, predicted_tags)]
-
-    #TODO complete the code
 
     return tagged_sentence
 
@@ -699,7 +687,7 @@ def get_best_performing_model_params():
     #TODO How do we know the input dimensions? 
     model_params = {'input_dimension': 16654,
                     'embedding_dimension': 100,
-                    'num_of_layers': 2, #TODO add hidden layers
+                    'num_of_layers': 2, 
                     'output_dimension': 17}
 
     return model_params
@@ -711,7 +699,6 @@ def create_weighted_matrix(target_vocab, vectors, emb_dim):
     weights_matrix = np.zeros((matrix_len, emb_dim))
     words_found = 0
     
-#TODO make sure we can enumarate a dictionary
     for i, word in enumerate(target_vocab.keys()):
         try: 
             weights_matrix[i] = vectors[word]
