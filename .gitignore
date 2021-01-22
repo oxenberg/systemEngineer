@@ -29,3 +29,8 @@ NLP/ex_4/LSTM.pt
 NLP/ex_4/__pycache__/tagger.cpython-38.pyc
 *.pyc
 *.pt
+NLP/ex_4/tagger_new.py
+NLP/ex_4/LSTM_BASE.pt
+NLP/.DS_Store
+NLP/ex_4/.DS_Store
+NLP/ex_4/__pycache__/tagger.cpython-38.pyc
