@@ -22,8 +22,6 @@ import numpy as np
 import sys, os, time, platform, nltk, random
 import pickle 
 
-from tqdm import tqdm
-
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -76,8 +74,7 @@ create_vectors = False
 START = "<DUMMY_START_TAG>"
 END = "<DUMMY_END_TAG>"
 UNK = "<UNKNOWN>"
-PAD = "<PAD>"
-
+  
 allTagCounts = Counter()
 # use Counters inside these
 perWordTagCounts = {}
@@ -399,58 +396,39 @@ class LSTMTagger(nn.Module):
         self.input_dim = vocab_size
         self.output_dim = tagset_size
         self.cased_flag = False
+        self.batch_size = 1
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
-        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, bidirectional=True,batch_first=True)
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, bidirectional=True)
 
         # The linear layer that maps from hidden state space to tag space
         self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
         self.word_to_ix = {}
         self.tag_to_ix = {}
 
-    def init_hidden(self,batch_size):
+    def init_hidden(self):
         # the weights are of the form (nb_layers, batch_size, nb_lstm_units)
-        hidden_a = torch.randn(self.num_layers*2, batch_size, self.hidden_dim)
-        hidden_b = torch.randn(self.num_layers*2, batch_size, self.hidden_dim)
+        hidden_a = torch.randn(self.num_layers, self.batch_size, self.hidden_dim)
+        hidden_b = torch.randn(self.num_layers, self.batch_size, self.hidden_dim)
 
 
         hidden_a = Variable(hidden_a)
         hidden_b = Variable(hidden_b)
 
         return (hidden_a, hidden_b)
-    def forward(self, sentence_obj, case_based_vectors = None):
-        
-        sentence = sentence_obj[0]
-        batch_size = sentence_obj[1]
-        real_length = sentence_obj[2]
-
-        seq_len = len(sentence[0])
-        
-        self.hidden = self.init_hidden(batch_size)
+    def forward(self, sentence, case_based_vectors = None):
+        self.hidden = self.init_hidden()
         
         
         embeds = self.word_embeddings(sentence) 
         if self.cased_flag:
             embeds = torch.cat([embeds, case_based_vectors], dim = 1)
-        
-        embeds = torch.nn.utils.rnn.pack_padded_sequence(embeds, real_length, batch_first=True,enforce_sorted=False)
 
-        
-        lstm_out, self.hidden = self.lstm(embeds,self.hidden)
-        
-        lstm_out, _ = torch.nn.utils.rnn.pad_packed_sequence(lstm_out, batch_first=True)
-
-        
-        lstm_out = lstm_out.contiguous()
-        lstm_out = lstm_out.view(-1, lstm_out.shape[2])
-        
-        tag_space = self.hidden2tag(lstm_out)
+        lstm_out, self.hidden = self.lstm(embeds.view(len(sentence), 1, -1))
+        tag_space = self.hidden2tag(lstm_out.view(len(sentence), -1))
         tag_scores = F.log_softmax(tag_space, dim = 1)
-        tag_scores = tag_scores.view(batch_size, max(real_length), self.output_dim)
-
-        # flatten all predictions
-        Y_hat = tag_scores.view(-1, self.output_dim)
-        return Y_hat
+        
+        return tag_scores
     
     def load_embeddings(self, weights_matrix,vocab_size, non_trainable = True):
         self.word_embeddings = nn.Embedding(vocab_size, self.embedding_dim)
@@ -463,33 +441,7 @@ class LSTMTagger(nn.Module):
         self.cased_flag = True
         self.lstm = nn.LSTM(self.embedding_dim+3, self.hidden_dim, self.num_layers, bidirectional=True)
 
-    def loss(self, Y_hat, Y, X_lengths):
-        # TRICK 3 ********************************
-        # before we calculate the negative log likelihood, we need to mask out the activations
-        # this means we don't want to take into account padded items in the output vector
-        # simplest way to think about this is to flatten ALL sequences into a REALLY long sequence
-        # and calculate the loss on that.
-
-        # flatten all the labels
-        Y = Y.view(-1)
-
-        # flatten all predictions
-        # Y_hat = Y_hat.view(-1, self.output_dim)
-
-        # create a mask by filtering out all tokens that ARE NOT the padding token
-        tag_pad_token = self.tag_to_ix[PAD]
-        mask = (Y < tag_pad_token).float()
-
-        # count how many tokens we have
-        nb_tokens = int(torch.sum(mask))
-
-        # pick the values for the label and zero out the rest with the mask
-        Y_hat = Y_hat[range(Y_hat.shape[0]), Y] * mask
-
-        # compute cross entropy loss which ignores all <PAD> tokens
-        ce_loss = -torch.sum(Y_hat) / nb_tokens
-
-        return ce_loss
+        
 
     
 
@@ -600,8 +552,6 @@ def process_data(data):
     tag_to_ix = {}
     training_data = []
     
-    max_len = max([len(sentence) for sentence in data])
-   
     for sentence in data:
         words = []
         tags = []
@@ -612,36 +562,12 @@ def process_data(data):
                 word_to_ix[word.lower()] = len(word_to_ix)
             if tag not in tag_to_ix:
                 tag_to_ix[tag] = len(tag_to_ix)
-        
- 
-
-        training_data.append([words, tags,len(sentence)])
+        training_data.append((words, tags))
     
     word_to_ix[UNK] = len(word_to_ix)
-    word_to_ix[PAD] = len(word_to_ix)
-    tag_to_ix[PAD] = len(tag_to_ix)
-    
-    
+
     
     return word_to_ix, tag_to_ix, training_data
-
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst and add padding."""
-    lst_copy = lst.copy()
-    random.shuffle(lst_copy)
-    n = max(1, n)
-    new_lst= []
-    for i in range(0, len(lst_copy), n):
-        batch = lst[i:i+n]
-        max_length_for_batch = max([len(j[0]) for j in batch])
-        #: padding
-        for item in batch:
-            diff_length = max_length_for_batch-len(item[0])
-            item[0] = item[0] + [PAD]*diff_length
-            item[1] = item[1] + [PAD]*diff_length
-        new_lst.append(batch)
-        
-    return new_lst
 
 def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     """Trains the BiLSTM model on the specified data.
@@ -662,8 +588,7 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     #    the required API)
 
     data = load_annotated_corpus(data_fn)
-    epochs = 40
-    batch_size = 128
+    epochs = 1
     
     if input_rep == 1:
         words_case_vector_dict = create_case_based_vectors(data)
@@ -673,8 +598,8 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     #: creating the word_to_ix and tag_to_ix dicts 
     #: and converting data to training data - change the list of tuples to a tuple of lists 
     word_to_ix, tag_to_ix, training_data = process_data(data)
-    pad_index = tag_to_ix[PAD]
-    criterion = nn.CrossEntropyLoss(ignore_index =pad_index) #you can set the parameters as you like
+    
+    criterion = nn.CrossEntropyLoss() #you can set the parameters as you like
     
     #TODO remove before submission. leave only the line that creates the vector
     if create_vectors:
@@ -692,25 +617,17 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     
     
     for epoch in range(epochs):  # again, normally you would NOT do 300 epochs, it is toy data
-        training_data_batch = chunks(training_data,batch_size)
-    
-        for train_obj in tqdm(training_data_batch):
+        for sentence, tags in training_data:
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
-            
-            sentence = [tuple_sentnece_tags[0] for tuple_sentnece_tags in train_obj]
-            tags = [tuple_sentnece_tags[1] for tuple_sentnece_tags in train_obj]
-            real_length_setnences = [tuple_sentnece_tags[2] for tuple_sentnece_tags in train_obj]
-
-            #not evrey batch is the same size (the last one diffrent)
-            real_batch_size = len(sentence)
+    
+    
             # Step 2. Get our inputs ready for the network, that is, turn them into
             # Variables of word indices.
-            sentence_in = prepare_sequence_list(sentence, word_to_ix)
-            targets = prepare_sequence_list(tags, tag_to_ix)
-            
-            sentence_in = (sentence_in,real_batch_size,real_length_setnences)
+            sentence_in = prepare_sequence(sentence, word_to_ix)
+            targets = prepare_sequence(tags, tag_to_ix)
+    
             # Step 3. Run our forward pass.
             if input_rep == 1:
                 case_based_vectors = torch.tensor([words_case_vector_dict[word] for word in sentence])
@@ -721,9 +638,7 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
     
             # Step 4. Compute the loss, gradients, and update the parameters by
             #  calling optimizer.step()
-            # Y = targets.view(-1)
-
-            loss = model.loss(tag_scores,targets,real_length_setnences )
+            loss = criterion(tag_scores, targets)
             loss.backward()
             optimizer.step()
     
@@ -732,15 +647,9 @@ def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
 
 # helper function for the train bilstm: 
 def prepare_sequence(seq, to_ix):
-    idxs = np.array([to_ix[w] for w in seq])
-    return idxs
+    idxs = [to_ix[w] for w in seq]
+    return torch.tensor(idxs, dtype=torch.long)
 
-def prepare_sequence_list(seq, to_ix):
-    if not isinstance(seq[0], list):
-        seq = [seq]
-    
-    idxs_list = np.array([prepare_sequence(s,to_ix) for s in seq])
-    return torch.tensor(idxs_list, dtype=torch.long) 
 def rnn_tag_sentence(sentence, model, input_rep = 0):
     """ Returns a list of pairs (w,t) where each w corresponds to a word
         (same index) in the input sentence. Tagging is done with the Viterby
@@ -771,9 +680,7 @@ def rnn_tag_sentence(sentence, model, input_rep = 0):
         sentence_UNK.append(sentence_UNK_word)
 
     with torch.no_grad():
-        inputs = prepare_sequence_list(sentence_lower_UNK, word_to_ix)
-        inputs = (inputs,1,[len(inputs[0])])
-
+        inputs = prepare_sequence(sentence_lower_UNK, word_to_ix)
         if input_rep == 1:
             case_based_vectors = torch.tensor([case_based_function(word) for word in sentence_UNK])
             
@@ -800,8 +707,8 @@ def get_best_performing_model_params():
     #TODO How do we know the input dimensions? 
     model_params = {'input_dimension': 16654,
                     'embedding_dimension': 100,
-                    'num_of_layers': 4, 
-                    'output_dimension': 18}
+                    'num_of_layers': 2, 
+                    'output_dimension': 17}
 
     return model_params
 
