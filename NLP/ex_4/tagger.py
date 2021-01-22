@@ -16,6 +16,7 @@ from torchtext import data
 from torchtext import datasets
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+import torchtext.vocab as vocab
 
 from math import log, isfinite, inf
 from collections import Counter
@@ -406,7 +407,7 @@ def joint_prob(sentence, A, B):
 
 class LSTMTagger(nn.Module):
 
-    def __init__(self, embedding_dim, vocab_size, tagset_size, num_layers, hidden_dim):
+    def __init__(self, embedding_dim, vocab_size, tagset_size, num_layers, hidden_dim, vocabulary):
         super(LSTMTagger, self).__init__()
         self.num_layers = num_layers
         self.hidden_dim = hidden_dim
@@ -415,6 +416,9 @@ class LSTMTagger(nn.Module):
         self.output_dim = tagset_size
         self.cased_flag = False
         self.batch_size = 1
+        self.TEXT = vocabulary[0]
+        self.TAGS = vocabulary[1]
+
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, bidirectional=True)
@@ -432,6 +436,61 @@ class LSTMTagger(nn.Module):
         tag_scores = F.log_softmax(tag_space, dim = 1)
         
         return tag_scores
+    
+    def change_to_case_based(self):
+        self.cased_flag = True
+        self.lstm = nn.LSTM(self.embedding_dim+3, self.hidden_dim, self.num_layers, bidirectional=True)
+
+
+def create_vocab(data_fn, min_freq, TEXT, TAGS, vectors, max_vocab_size):
+    train_data = load_annotated_corpus(data_fn)
+    unique_words = convert_to_csv_for_iterator(train_data)
+    train = create_iterator()
+    
+    if max_vocab_size == -1: 
+        TEXT.build_vocab(train, min_freq = min_freq, vectors = vectors, unk_init = torch.Tensor.normal_)
+    elif len(unique_words) > max_vocab_size: 
+        TEXT.build_vocab(train, max_size=max_vocab_size, vectors = vectors, unk_init = torch.Tensor.normal_)
+    else: 
+        TEXT.build_vocab(train, vectors = vectors, unk_init = torch.Tensor.normal_)
+        
+    TAGS.build_vocab(train)
+    vocabulary  = (TEXT,TAGS)
+    return vocabulary
+
+def convert_to_csv_for_iterator(data,data_name = "train"):
+    all_sentences_list = []
+    all_tags_list = []
+    unique_words = set()
+    
+    for sentence in data:
+        words = []
+        tags = []
+        for word,tag in sentence:
+            words.append(word.lower())
+            tags.append(tag)
+        unique_words.update(words)    
+        words_combined = " ".join(words)
+        tags_combined = " ".join(tags)
+        all_sentences_list.append(words_combined)
+        all_tags_list.append(tags_combined)
+    
+    df = pd.DataFrame(list(zip(all_sentences_list, all_tags_list)), 
+                columns =['words', 'tags'])
+    df.to_csv(f"{data_name}.csv")
+    return unique_words
+
+def create_iterator(TEXT, TAGS, data_name = "train"):
+    
+    path = f"{data_name}.csv"
+    fields = [
+      (None,None),     
+    ('text',TEXT ), 
+    ("udtags", TAGS)]
+    
+    tablular_data = data.TabularDataset(path=path, format='csv', fields=fields,skip_header = True)
+    
+    return tablular_data
 
 
 def create_data_csv_files(data,val = None):
@@ -467,9 +526,7 @@ def init_model_weights(model):
         nn.init.normal_(param.data, mean = 0, std = 0.1)
 
 
-
-
-def initialize_rnn_model(params_d):
+def initialize_rnn_model(params_d, hidden_dim = 2):
     """Returns a dictionary with the objects and parameters needed to run/train_rnn
        the lstm model. The LSTM is initialized based on the specified parameters.
        thr returned dict is may have other or additional fields.
@@ -509,30 +566,20 @@ def initialize_rnn_model(params_d):
         #Hint: you may consider adding the embeddings and the vocabulary
         #to the returned dict
     """
+    
+    TEXT = data.Field(lower = True)
+    UD_TAGS = data.Field(unk_token = UNK)
+    vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
+    vocabulary = create_vocab(params_d['data_fn'], params_d['min_frequency'], TEXT, UD_TAGS, vectors, params_d['max_vocab_size'])
 
-    #TODO complete the code
+    params_d['hidden_dim'] = hidden_dim
+    lstm_model = LSTMTagger(params_d['embedding_dimension'],params_d['max_vocab_size'],params_d['output_dimension'], params_d['num_of_layers'],params_d['hidden_dim'], vocabulary = vocabulary)  
+    model = {'lstm':lstm_model, 
+              'input_rep' :params_d['input_rep'],
+              'embeddings': vectors, 
+              'vocab': vocabulary}
 
     return model
-
-#no need for this one as part of the API
-#def get_model_params(model):
-    """Returns a dictionary specifying the parameters of the specified model.
-    This dictionary should be used to create another instance of the model.
-
-    Args:
-        model (torch.nn.Module): the network architecture
-
-    Return:
-        a dictionary, containing at least the following keys:
-        {'input_dimension': int,
-        'embedding_dimension': int,
-        'num_of_layers': int,
-        'output_dimension': int}
-    """
-
-    #TODO complete the code
-
-    #return params_d
 
 def load_pretrained_embeddings(path, vocab=None):
     """ Returns an object with the the pretrained vectors, loaded from the
@@ -549,7 +596,8 @@ def load_pretrained_embeddings(path, vocab=None):
         vocab (list): a list of words to have embeddings for. Defaults to None.
 
     """
-    #TODO
+    vectors = vocab.Vectors(name = path, cache = 'vectors', unk_init = torch.Tensor.normal_)
+
     return vectors
 
 def evaluate(model, iterator, criterion, tag_pad_idx):
@@ -585,7 +633,6 @@ def train(model, iterator, optimizer, criterion, tag_pad_idx):
     
     model.eval()
     
-    with torch.no_grad():
     model.train()
     
     for batch in iterator:
@@ -705,6 +752,7 @@ def get_best_performing_model_params():
     #TODO complete the code
 
     return model_params
+
 
 
 # class LSTMTagger(nn.Module):
