@@ -404,6 +404,70 @@ def joint_prob(sentence, A, B):
 #  5. Think about the way you implement the input representation
 #  6. Consider using different unit types (LSTM, GRU,LeRU)
 
+class LSTMTagger(nn.Module):
+
+    def __init__(self, embedding_dim, vocab_size, tagset_size, num_layers, hidden_dim):
+        super(LSTMTagger, self).__init__()
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+        self.embedding_dim = embedding_dim
+        self.input_dim = vocab_size
+        self.output_dim = tagset_size
+        self.cased_flag = False
+        self.batch_size = 1
+        # The LSTM takes word embeddings as inputs, and outputs hidden states
+        # with dimensionality hidden_dim.
+        self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, bidirectional=True)
+
+        # The linear layer that maps from hidden state space to tag space
+        self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
+        self.word_to_ix = {}
+        self.tag_to_ix = {}
+
+    def forward(self, sentence):
+        embeds = self.word_embeddings(sentence) 
+        
+        lstm_out, self.hidden = self.lstm(embeds)
+        tag_space = self.hidden2tag(lstm_out)
+        tag_scores = F.log_softmax(tag_space, dim = 1)
+        
+        return tag_scores
+
+
+def create_data_csv_files(data,val = None):
+    convert_to_csv_for_iterator(data, data_name = "train")
+    if val:
+        convert_to_csv_for_iterator(val, data_name = "val")
+
+def buildTabularDataset(val_data,TEXT,TAGS):
+    
+    fields = [
+     (None,None),     
+    ('text',TEXT ), 
+    ("tags", TAGS)]
+    
+    
+    train_data = data.TabularDataset(
+        path="train", format='csv',
+        fields=fields,skip_header = True)
+    
+    if val_data:
+        valid_data = data.TabularDataset(
+            path="val", format='csv',
+            fields=fields,skip_header = True) 
+    
+    else:
+        train_data,val_data = train_data.split()
+
+    
+    return train_data,val_data
+
+def init_model_weights(model):
+    for name, param in model.named_parameters():
+        nn.init.normal_(param.data, mean = 0, std = 0.1)
+
+
+
 
 def initialize_rnn_model(params_d):
     """Returns a dictionary with the objects and parameters needed to run/train_rnn
@@ -488,6 +552,71 @@ def load_pretrained_embeddings(path, vocab=None):
     #TODO
     return vectors
 
+def evaluate(model, iterator, criterion, tag_pad_idx):
+    
+    epoch_loss = 0
+    
+    model.eval()
+    
+    with torch.no_grad():
+    
+        for batch in iterator:
+
+            text = batch.text
+            tags = batch.tags
+            
+            predictions = model(text)
+            
+            predictions = predictions.view(-1, predictions.shape[-1])
+            tags = tags.view(-1)
+            
+            loss = criterion(predictions, tags)
+            
+            acc = categorical_accuracy(predictions, tags, tag_pad_idx)
+
+            epoch_loss += loss.item()
+            epoch_acc += acc.item()
+        
+    return epoch_loss / len(iterator)
+
+def train(model, iterator, optimizer, criterion, tag_pad_idx):
+    
+    epoch_loss = 0
+    
+    model.eval()
+    
+    with torch.no_grad():
+    model.train()
+    
+    for batch in iterator:
+        
+        text = batch.text
+        tags = batch.tags
+        
+        optimizer.zero_grad()
+        
+        #text = [sent len, batch size]
+        
+        predictions = model(text)
+        
+        #predictions = [sent len, batch size, output dim]
+        #tags = [sent len, batch size]
+        
+        predictions = predictions.view(-1, predictions.shape[-1])
+        tags = tags.view(-1)
+        
+        #predictions = [sent len * batch size, output dim]
+        #tags = [sent len * batch size]
+        
+        loss = criterion(predictions, tags)
+                        
+        loss.backward()
+        
+        optimizer.step()
+        
+        epoch_loss += loss.item()
+        
+    return epoch_loss / len(iterator)
 
 def train_rnn(model, train_data, val_data = None):
     """Trains the BiLSTM model on the specified data.
@@ -510,14 +639,44 @@ def train_rnn(model, train_data, val_data = None):
     #    the required API)
 
     #TODO complete the code
+    BATCH_SIZE = 128
+    N_EPOCHS = 40
 
+    lstm_model = model['lstm']
+    lstm_model.apply(init_model_weights)
+    create_data_csv_files(train_data,val_data)
+    
+    TEXT,TAGS = model['vocab']
+    
+    train_data,val_data = buildTabularDataset(val_data,TEXT,TAGS)
+    
+    train_iterator, valid_iterator = data.BucketIterator.splits(
+      (train_data, val_data), sort_key=lambda x: len(x.text),
+      batch_size = BATCH_SIZE,
+      sort_within_batch = True)
+    
     criterion = nn.CrossEntropyLoss() #you can set the parameters as you like
-    vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
+    
+    # vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
 
     model = model.to(device)
     criterion = criterion.to(device)
+    optimizer = optim.Adam(model.parameters())
+    
 
-
+    best_valid_loss = float('inf')
+    
+    for epoch in range(N_EPOCHS):
+    
+        
+        train_loss, train_acc = train(model, train_iterator, optimizer, criterion, TAG_PAD_IDX)
+        valid_loss, valid_acc = evaluate(model, valid_iterator, criterion, TAG_PAD_IDX)
+                
+        if valid_loss < best_valid_loss:
+            best_valid_loss = valid_loss
+    
+    print(f"best_valid_loss: {best_valid_loss}")
+    
 def rnn_tag_sentence(sentence, model):
     """ Returns a list of pairs (w,t) where each w corresponds to a word
         (same index) in the input sentence and t is the predicted tag.
