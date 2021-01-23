@@ -34,3 +34,5 @@ NLP/ex_4/LSTM_BASE.pt
 NLP/.DS_Store
 NLP/ex_4/.DS_Store
 NLP/ex_4/__pycache__/tagger.cpython-38.pyc
+NLP/ex_4/train.csv
+NLP/ex_4/case_vectors.txt
