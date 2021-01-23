@@ -56,15 +56,15 @@ tagger.train_rnn(model, train_data)
 
 
 
-# score_nom, score_denom = 0, 0
-# for gold_sentence in dev_data:
-#     pred_sentence = [w[0] for w in gold_sentence]
-#     tagged_sentence = tagger.rnn_tag_sentence(pred_sentence, model)
-#     correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
-#     score_nom += correct
-#     score_denom += len(pred_sentence)
+score_nom, score_denom = 0, 0
+for gold_sentence in dev_data:
+    pred_sentence = [w[0] for w in gold_sentence]
+    tagged_sentence = tagger.rnn_tag_sentence(pred_sentence, model)
+    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
+    score_nom += correct
+    score_denom += len(pred_sentence)
 
-# print(f"baseline score for bilstm is {score_nom/score_denom}")
+print(f"baseline score for bilstm is {score_nom/score_denom}")
 
 # input_rep = 1
 # dict_params = tagger.get_best_performing_model_params()
