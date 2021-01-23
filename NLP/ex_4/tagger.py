@@ -495,13 +495,17 @@ def convert_to_csv_for_iterator(data,data_name = "train"):
     df.to_csv(f"{data_name}.csv")
     return unique_words
 
-def create_iterator(TEXT, TAGS, data_name = "train"):
+def create_iterator(TEXT, TAGS, data_name = "train",input_rep = 0):
     
     path = f"{data_name}.csv"
     fields = [
       (None,None),     
     ('text',TEXT ), 
     ("tags", TAGS)]
+    
+    if input_rep:
+        CASED = data.Field(lower = True)
+        fields.append(('cased',CASED ))
     
     tablular_data = data.TabularDataset(path=path, format='csv', fields=fields,skip_header = True)
     
@@ -513,15 +517,16 @@ def create_data_csv_files(data,val = None):
     if val:
         convert_to_csv_for_iterator(val, data_name = "val")
 
-def buildTabularDataset(val_data,TEXT,TAGS):
-    
-    train_data = create_iterator(TEXT, TAGS)
+def buildTabularDataset(val_data,TEXT,TAGS,input_rep):
+        
+    train_data = create_iterator(TEXT, TAGS,input_rep = input_rep)
     
     if val_data:
-        valid_data = create_iterator(TEXT, TAGS, data_name = "val")
+        valid_data = create_iterator(TEXT, TAGS, data_name = "val",input_rep = input_rep)
     
     else:
         train_data,valid_data = train_data.split(split_ratio = 0.9)
+            
 
     
     return train_data,valid_data
@@ -705,14 +710,15 @@ def train_rnn(model, train_data, val_data = None):
     #TODO complete the code
     BATCH_SIZE = 128
     N_EPOCHS = 100
-
+    input_rep = model['input_rep']
+    
     lstm_model = model['lstm']
     create_data_csv_files(train_data,val_data)
     
     TEXT,TAGS = model['vocab']
     pad_ind = TAGS.vocab.stoi[TAGS.pad_token]
     
-    train_data,val_data = buildTabularDataset(val_data,TEXT,TAGS)
+    train_data,val_data = buildTabularDataset(val_data,TEXT,TAGS,input_rep)
     
     train_iterator, valid_iterator = data.BucketIterator.splits(
       (train_data, val_data), sort_key=lambda x: len(x.text),
