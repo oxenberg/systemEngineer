@@ -415,18 +415,17 @@ class LSTMTagger(nn.Module):
         self.input_dim = vocab_size
         self.output_dim = tagset_size
         self.cased_flag = False
-        self.batch_size = 1
         self.TEXT = vocabulary[0]
         self.TAGS = vocabulary[1]
 
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, bidirectional=True)
-
+        
+        self.load_embeddings()
         # The linear layer that maps from hidden state space to tag space
         self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
-        self.word_to_ix = {}
-        self.tag_to_ix = {}
+
 
     def forward(self, sentence):
         embeds = self.word_embeddings(sentence) 
@@ -436,6 +435,16 @@ class LSTMTagger(nn.Module):
         tag_scores = F.log_softmax(tag_space, dim = 1)
         
         return tag_scores
+    
+    def load_embeddings(self, non_trainable = True):
+        pretrained_embedding = self.TEXT.vocab.vectors
+        pad_ind = self.TEXT.vocab.stoi[self.TEXT.pad_token]
+        self.word_embeddings = nn.Embedding(self.input_dim, self.embedding_dim)
+        self.word_embeddings.load_state_dict({'weight': pretrained_embedding})
+        self.word_embeddings.weight.data[pad_ind] = torch.zeros(self.embedding_dim)
+
+        if non_trainable:
+              self.word_embeddings.weight.requires_grad = False
     
     def change_to_case_based(self):
         self.cased_flag = True
@@ -558,14 +567,15 @@ def initialize_rnn_model(params_d, hidden_dim = 2):
     """
     
     TEXT = data.Field(lower = True)
-    UD_TAGS = data.Field(unk_token = UNK)
+    TAGS = data.Field(unk_token = UNK)
     vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
-    vocabulary = create_vocab(params_d['data_fn'], params_d['min_frequency'], TEXT, UD_TAGS, vectors, params_d['max_vocab_size'])
+    vocabulary = create_vocab(params_d['data_fn'], params_d['min_frequency'], TEXT, TAGS, vectors, params_d['max_vocab_size'])
     
     if "hidden_dim" not in params_d:  
         params_d['hidden_dim'] = hidden_dim
-        
-    lstm_model = LSTMTagger(params_d['embedding_dimension'],params_d['max_vocab_size'],params_d['output_dimension'], params_d['num_of_layers'],params_d['hidden_dim'], vocabulary = vocabulary)  
+
+    input_dim = min(params_d['max_vocab_size'], len(TEXT.vocab))    
+    lstm_model = LSTMTagger(params_d['embedding_dimension'],input_dim, params_d['output_dimension'], params_d['num_of_layers'],params_d['hidden_dim'], vocabulary = vocabulary)  
     model = {'lstm':lstm_model, 
               'input_rep' :params_d['input_rep'],
               'embeddings': vectors, 
@@ -614,7 +624,6 @@ def evaluate(model, iterator, criterion):
             
 
             epoch_loss += loss.item()
-            epoch_acc += acc.item()
         
     return epoch_loss / len(iterator)
 
@@ -678,13 +687,14 @@ def train_rnn(model, train_data, val_data = None):
 
     #TODO complete the code
     BATCH_SIZE = 128
-    N_EPOCHS = 40
+    N_EPOCHS = 1
 
     lstm_model = model['lstm']
     lstm_model.apply(init_model_weights)
     create_data_csv_files(train_data,val_data)
     
     TEXT,TAGS = model['vocab']
+    pad_ind = TAGS.vocab.stoi[TAGS.pad_token]
     
     train_data,val_data = buildTabularDataset(val_data,TEXT,TAGS)
     
@@ -693,7 +703,7 @@ def train_rnn(model, train_data, val_data = None):
       batch_size = BATCH_SIZE,
       sort_within_batch = True)
     
-    criterion = nn.CrossEntropyLoss() #you can set the parameters as you like
+    criterion = nn.CrossEntropyLoss(ignore_index=pad_ind) #you can set the parameters as you like
     
     # vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
 
@@ -707,8 +717,8 @@ def train_rnn(model, train_data, val_data = None):
     for epoch in range(N_EPOCHS):
     
         
-        train_loss, train_acc = train(lstm_model, train_iterator, optimizer, criterion)
-        valid_loss, valid_acc = evaluate(lstm_model, valid_iterator, criterion)
+        train_loss = train(lstm_model, train_iterator, optimizer, criterion)
+        valid_loss = evaluate(lstm_model, valid_iterator, criterion)
                 
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
@@ -728,11 +738,60 @@ def rnn_tag_sentence(sentence, model):
         list: list of pairs
     """
 
-    #TODO complete the code
+    TEXT, TAGS = model['vocab']
+    
+    
+    
 
     return tagged_sentence
 
 
+# def rnn_tag_sentence(sentence, model, input_rep = 0):
+#     """ Returns a list of pairs (w,t) where each w corresponds to a word
+#         (same index) in the input sentence. Tagging is done with the Viterby
+#         algorithm.
+
+#     Args:
+#         sentence (list): a list of tokens (the sentence to tag)
+#         model (torch.nn.Module):  a trained BiLSTM model
+#         input_rep (int): sets the input representation. Defaults to 0 (vanilla),
+#                          1: case-base; <other int>: other models, if you are playful
+
+#     Return:
+#         list: list of pairs
+#     """
+
+#     word_to_ix = model.word_to_ix
+#     sentence_lower_UNK = []
+#     sentence_UNK = []
+#     for word in sentence:
+#         sentence_lower_UNK_word = sentence_UNK_word = UNK
+
+#         lower_word = word.lower()
+#         if lower_word in word_to_ix.keys():
+#             sentence_UNK_word = word
+#             sentence_lower_UNK_word = lower_word
+            
+#         sentence_lower_UNK.append(sentence_lower_UNK_word)
+#         sentence_UNK.append(sentence_UNK_word)
+
+#     with torch.no_grad():
+#         inputs = prepare_sequence(sentence_lower_UNK, word_to_ix)
+#         if input_rep == 1:
+#             case_based_vectors = torch.tensor([case_based_function(word) for word in sentence_UNK])
+            
+#             case_based_vectors = case_based_vectors.to(device)
+#             inputs = inputs.to(device)
+#             tag_scores = model(inputs,case_based_vectors)
+#         else:
+#             tag_scores = model(inputs)
+    
+#     tags_idx = np.argmax(tag_scores, axis = 1).tolist()
+#     idx_tag_dict = {v:k for k,v in model.tag_to_ix.items()}
+#     predicted_tags = [idx_tag_dict[i] for i in tags_idx]
+#     tagged_sentence = [(word, tag) for word, tag in zip(sentence, predicted_tags)]
+
+#     return tagged_sentence
 
 def get_best_performing_model_params():
     """Returns a disctionary specifying the parameters of your best performing
@@ -748,7 +807,7 @@ def get_best_performing_model_params():
                         'input_rep': 0,
                         'embedding_dimension': 100,
                         'num_of_layers': 2,
-                        'output_dimension': 17,
+                        'output_dimension': 19,
                         #TODO change path to same directory for both data files
                         'pretrained_embeddings_fn': "embeddings/glove.6B.100d.txt",
                         'data_fn': "data/en-ud-train.upos.tsv",
