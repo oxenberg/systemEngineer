@@ -52,40 +52,36 @@ dev_data = tagger.load_annotated_corpus(dev_path)
 input_rep = 0
 dict_params = tagger.get_best_performing_model_params()
 model = tagger.initialize_rnn_model(dict_params)
-print(tagger.get_model_params(model))
-tagger.train_rnn(model, train_path, embedding_path, input_rep = input_rep)
+tagger.train_rnn(model, train_data)
 
-torch.save(model, "LSTM.pt")
 
-bi_model = torch.load("LSTM.pt")
-bi_model.eval()
 
-score_nom, score_denom = 0, 0
-for gold_sentence in dev_data:
-    pred_sentence = [w[0] for w in gold_sentence]
-    tagged_sentence = tagger.rnn_tag_sentence(pred_sentence, bi_model, input_rep)
-    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
-    score_nom += correct
-    score_denom += len(pred_sentence)
+# score_nom, score_denom = 0, 0
+# for gold_sentence in dev_data:
+#     pred_sentence = [w[0] for w in gold_sentence]
+#     tagged_sentence = tagger.rnn_tag_sentence(pred_sentence, model)
+#     correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
+#     score_nom += correct
+#     score_denom += len(pred_sentence)
 
-print(f"baseline score for bilstm is {score_nom/score_denom}")
+# print(f"baseline score for bilstm is {score_nom/score_denom}")
 
-input_rep = 1
-dict_params = tagger.get_best_performing_model_params()
-model = tagger.initialize_rnn_model(dict_params)
-tagger.train_rnn(model, train_path, embedding_path, input_rep = input_rep)
+# input_rep = 1
+# dict_params = tagger.get_best_performing_model_params()
+# model = tagger.initialize_rnn_model(dict_params)
+# tagger.train_rnn(model, train_path, embedding_path, input_rep = input_rep)
 
-torch.save(model, "LSTM_BASE.pt")
+# torch.save(model, "LSTM_BASE.pt")
 
-case_model = torch.load("LSTM_BASE.pt")
-case_model.eval()
+# case_model = torch.load("LSTM_BASE.pt")
+# case_model.eval()
 
-score_nom, score_denom = 0, 0
-for gold_sentence in dev_data:
-    pred_sentence = [w[0] for w in gold_sentence]
-    tagged_sentence = tagger.rnn_tag_sentence(pred_sentence, case_model, input_rep)
-    correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
-    score_nom += correct
-    score_denom += len(pred_sentence)
+# score_nom, score_denom = 0, 0
+# for gold_sentence in dev_data:
+#     pred_sentence = [w[0] for w in gold_sentence]
+#     tagged_sentence = tagger.rnn_tag_sentence(pred_sentence, case_model, input_rep)
+#     correct, correctOOV, OOV = tagger.count_correct(gold_sentence, tagged_sentence)
+#     score_nom += correct
+#     score_denom += len(pred_sentence)
 
-print(f"baseline score for case bilstm is {score_nom/score_denom}")
+# print(f"baseline score for case bilstm is {score_nom/score_denom}")

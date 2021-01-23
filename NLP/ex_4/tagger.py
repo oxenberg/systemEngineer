@@ -16,7 +16,7 @@ from torchtext import data
 from torchtext import datasets
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
-import torchtext.vocab as vocab
+import torchtext.vocab as torch_vocab
 
 from math import log, isfinite, inf
 from collections import Counter
@@ -445,7 +445,7 @@ class LSTMTagger(nn.Module):
 def create_vocab(data_fn, min_freq, TEXT, TAGS, vectors, max_vocab_size):
     train_data = load_annotated_corpus(data_fn)
     unique_words = convert_to_csv_for_iterator(train_data)
-    train = create_iterator()
+    train = create_iterator(TEXT, TAGS)
     
     if max_vocab_size == -1: 
         TEXT.build_vocab(train, min_freq = min_freq, vectors = vectors, unk_init = torch.Tensor.normal_)
@@ -486,7 +486,7 @@ def create_iterator(TEXT, TAGS, data_name = "train"):
     fields = [
       (None,None),     
     ('text',TEXT ), 
-    ("udtags", TAGS)]
+    ("tags", TAGS)]
     
     tablular_data = data.TabularDataset(path=path, format='csv', fields=fields,skip_header = True)
     
@@ -500,26 +500,16 @@ def create_data_csv_files(data,val = None):
 
 def buildTabularDataset(val_data,TEXT,TAGS):
     
-    fields = [
-     (None,None),     
-    ('text',TEXT ), 
-    ("tags", TAGS)]
-    
-    
-    train_data = data.TabularDataset(
-        path="train", format='csv',
-        fields=fields,skip_header = True)
+    train_data = create_iterator(TEXT, TAGS)
     
     if val_data:
-        valid_data = data.TabularDataset(
-            path="val", format='csv',
-            fields=fields,skip_header = True) 
+        valid_data = create_iterator(TEXT, TAGS, data_name = "val")
     
     else:
-        train_data,val_data = train_data.split()
+        train_data,valid_data = train_data.split()
 
     
-    return train_data,val_data
+    return train_data,valid_data
 
 def init_model_weights(model):
     for name, param in model.named_parameters():
@@ -571,8 +561,10 @@ def initialize_rnn_model(params_d, hidden_dim = 2):
     UD_TAGS = data.Field(unk_token = UNK)
     vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
     vocabulary = create_vocab(params_d['data_fn'], params_d['min_frequency'], TEXT, UD_TAGS, vectors, params_d['max_vocab_size'])
-
-    params_d['hidden_dim'] = hidden_dim
+    
+    if "hidden_dim" not in params_d:  
+        params_d['hidden_dim'] = hidden_dim
+        
     lstm_model = LSTMTagger(params_d['embedding_dimension'],params_d['max_vocab_size'],params_d['output_dimension'], params_d['num_of_layers'],params_d['hidden_dim'], vocabulary = vocabulary)  
     model = {'lstm':lstm_model, 
               'input_rep' :params_d['input_rep'],
@@ -596,11 +588,11 @@ def load_pretrained_embeddings(path, vocab=None):
         vocab (list): a list of words to have embeddings for. Defaults to None.
 
     """
-    vectors = vocab.Vectors(name = path, cache = 'vectors', unk_init = torch.Tensor.normal_)
+    vectors = torch_vocab.Vectors(name = path, cache = 'vectors', unk_init = torch.Tensor.normal_)
 
     return vectors
 
-def evaluate(model, iterator, criterion, tag_pad_idx):
+def evaluate(model, iterator, criterion):
     
     epoch_loss = 0
     
@@ -620,14 +612,13 @@ def evaluate(model, iterator, criterion, tag_pad_idx):
             
             loss = criterion(predictions, tags)
             
-            acc = categorical_accuracy(predictions, tags, tag_pad_idx)
 
             epoch_loss += loss.item()
             epoch_acc += acc.item()
         
     return epoch_loss / len(iterator)
 
-def train(model, iterator, optimizer, criterion, tag_pad_idx):
+def train(model, iterator, optimizer, criterion):
     
     epoch_loss = 0
     
@@ -706,9 +697,9 @@ def train_rnn(model, train_data, val_data = None):
     
     # vectors = load_pretrained_embeddings(pretrained_embeddings_fn)
 
-    model = model.to(device)
+    lstm_model = lstm_model.to(device)
     criterion = criterion.to(device)
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(lstm_model.parameters(), lr=0.1)
     
 
     best_valid_loss = float('inf')
@@ -716,8 +707,8 @@ def train_rnn(model, train_data, val_data = None):
     for epoch in range(N_EPOCHS):
     
         
-        train_loss, train_acc = train(model, train_iterator, optimizer, criterion, TAG_PAD_IDX)
-        valid_loss, valid_acc = evaluate(model, valid_iterator, criterion, TAG_PAD_IDX)
+        train_loss, train_acc = train(lstm_model, train_iterator, optimizer, criterion)
+        valid_loss, valid_acc = evaluate(lstm_model, valid_iterator, criterion)
                 
         if valid_loss < best_valid_loss:
             best_valid_loss = valid_loss
@@ -742,6 +733,7 @@ def rnn_tag_sentence(sentence, model):
     return tagged_sentence
 
 
+
 def get_best_performing_model_params():
     """Returns a disctionary specifying the parameters of your best performing
         BiLSTM model.
@@ -750,7 +742,19 @@ def get_best_performing_model_params():
                initialize_rnn_model() and train_lstm()
     """
     #TODO complete the code
-
+    
+    model_params = {'max_vocab_size': 20_000,
+                        'min_frequency': 1,
+                        'input_rep': 0,
+                        'embedding_dimension': 100,
+                        'num_of_layers': 2,
+                        'output_dimension': 17,
+                        #TODO change path to same directory for both data files
+                        'pretrained_embeddings_fn': "embeddings/glove.6B.100d.txt",
+                        'data_fn': "data/en-ud-train.upos.tsv",
+                        "hidden_dim" : 2
+                        }
+    
     return model_params
 
 
