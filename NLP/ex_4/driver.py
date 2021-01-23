@@ -66,6 +66,18 @@ for gold_sentence in dev_data:
 
 print(f"baseline score for bilstm is {score_nom/score_denom}")
 
+
+
+
+
+
+
+
+
+
+
+
+
 # input_rep = 1
 # dict_params = tagger.get_best_performing_model_params()
 # model = tagger.initialize_rnn_model(dict_params)
