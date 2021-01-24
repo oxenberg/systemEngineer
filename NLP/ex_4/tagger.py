@@ -832,7 +832,7 @@ def train_rnn(model, train_data, val_data = None):
 
     #TODO complete the code
     BATCH_SIZE = 128
-    N_EPOCHS = 30
+    N_EPOCHS = 50
     input_rep = model['input_rep']
     
     lstm_model = model['lstm']
@@ -895,7 +895,6 @@ def rnn_tag_sentence(sentence, model):
     input_rep = model['input_rep']
     
     vocabulary = TEXT.vocab.stoi
-    vocabulary_cased = CASED.vocab.stoi
     vocabulary_tag = TAGS.vocab.itos
     
 
@@ -907,6 +906,7 @@ def rnn_tag_sentence(sentence, model):
     with torch.no_grad():    
         sentence_lower = sentence_lower.to(device)
         if input_rep:
+            vocabulary_cased = CASED.vocab.stoi
             sentence_cased = [[vocabulary_cased[word] for word in sentence]]
             sentence_cased = torch.tensor(sentence_cased,dtype=torch.long)
             sentence_cased = sentence_cased.to(device)    
@@ -934,7 +934,7 @@ def get_best_performing_model_params():
     
     model_params = {'max_vocab_size': 20_000,
                         'min_frequency': 1,
-                        'input_rep': 1,
+                        'input_rep': 0,
                         'embedding_dimension': 100,
                         'num_of_layers': 5,
                         'output_dimension': 18,
