@@ -583,7 +583,7 @@ def init_model_weights(model):
         nn.init.normal_(param.data, mean = 0, std = 0.1)
 
 
-def initialize_rnn_model(params_d, hidden_dim = 2):
+def initialize_rnn_model(params_d, hidden_dim = 128):
     """Returns a dictionary with the objects and parameters needed to run/train_rnn
        the lstm model. The LSTM is initialized based on the specified parameters.
        thr returned dict is may have other or additional fields.
@@ -800,7 +800,7 @@ def train_rnn(model, train_data, val_data = None):
     #    the required API)
 
     BATCH_SIZE = 128
-    N_EPOCHS = 1
+    N_EPOCHS = 50
 
     input_rep = model['input_rep']
     
@@ -911,7 +911,7 @@ def get_best_performing_model_params():
                         #TODO change path to same directory for both data files
                         'pretrained_embeddings_fn': "glove.6B.100d.txt",
                         'data_fn': "data/en-ud-train.upos.tsv",
-                        "hidden_dim" : 8
+                        "hidden_dim" : 128
                         }
     
     return model_params
