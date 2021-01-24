@@ -801,6 +801,7 @@ def train_rnn(model, train_data, val_data = None):
 
     BATCH_SIZE = 128
     N_EPOCHS = 1
+
     input_rep = model['input_rep']
     
     lstm_model = model['lstm']
@@ -902,8 +903,8 @@ def get_best_performing_model_params():
 
     
     model_params = {'max_vocab_size': 20_000,
-                        'min_frequency': 2,
-                        'input_rep': 1,
+                        'min_frequency': 1,
+                        'input_rep': 0,
                         'embedding_dimension': 100,
                         'num_of_layers': 5,
                         'output_dimension': 18,
