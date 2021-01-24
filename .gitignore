@@ -36,3 +36,6 @@ NLP/ex_4/.DS_Store
 NLP/ex_4/__pycache__/tagger.cpython-38.pyc
 NLP/ex_4/train.csv
 NLP/ex_4/case_vectors.txt
+NLP/ex_4/glove.6B.100d.txt
+NLP/ex_4/filterd_embddings.txt
+NLP/ex_4/filterd_embddings.txt.txt

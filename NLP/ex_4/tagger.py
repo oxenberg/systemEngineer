@@ -30,7 +30,6 @@ from tqdm import tqdm
 # With this line you don't need to worry about the HW  -- GPU or CPU
 # GPU cuda cores will be used if available
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-# device = 'cuda:0'
 
 # You can call use_seed with other seeds or None (for complete randomization)
 # but DO NOT change the default value.
@@ -73,8 +72,6 @@ def load_annotated_corpus(filename):
     return sentences
 
 
-#TODO remove before submission
-create_vectors = False
 
 START = "<DUMMY_START_TAG>"
 END = "<DUMMY_END_TAG>"
@@ -409,64 +406,6 @@ def joint_prob(sentence, A, B):
 
 
 
-# class LSTMTagger(nn.Module):
-
-#     def __init__(self, embedding_dim, vocab_size, tagset_size, num_layers, hidden_dim):
-#         super(LSTMTagger, self).__init__()
-#         self.num_layers = num_layers
-#         self.hidden_dim = hidden_dim
-#         self.embedding_dim = embedding_dim
-#         self.input_dim = vocab_size
-#         self.output_dim = tagset_size
-#         self.cased_flag = False
-#         self.batch_size = 1
-#         # The LSTM takes word embeddings as inputs, and outputs hidden states
-#         # with dimensionality hidden_dim.
-#         self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, bidirectional=True)
-
-#         # The linear layer that maps from hidden state space to tag space
-#         self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
-#         self.word_to_ix = {}
-#         self.tag_to_ix = {}
-
-#     def init_hidden(self):
-#         # the weights are of the form (nb_layers, batch_size, nb_lstm_units)
-#         hidden_a = torch.randn(self.num_layers, self.batch_size, self.hidden_dim)
-#         hidden_b = torch.randn(self.num_layers, self.batch_size, self.hidden_dim)
-
-
-#         hidden_a = Variable(hidden_a)
-#         hidden_b = Variable(hidden_b)
-
-#         return (hidden_a, hidden_b)
-#     def forward(self, sentence, case_based_vectors = None):
-#         self.hidden = self.init_hidden()
-        
-        
-#         embeds = self.word_embeddings(sentence) 
-#         if self.cased_flag:
-#             embeds = torch.cat([embeds, case_based_vectors], dim = 1)
-
-#         lstm_out, self.hidden = self.lstm(embeds.view(len(sentence), 1, -1))
-#         tag_space = self.hidden2tag(lstm_out.view(len(sentence), -1))
-#         tag_scores = F.log_softmax(tag_space, dim = 1)
-        
-#         return tag_scores
-    
-#     def load_embeddings(self, weights_matrix,vocab_size, non_trainable = True):
-#         self.word_embeddings = nn.Embedding(vocab_size, self.embedding_dim)
-#         self.input_dim = vocab_size
-#         self.word_embeddings.load_state_dict({'weight': torch.from_numpy(weights_matrix)})
-#         if non_trainable:
-#              self.word_embeddings.weight.requires_grad = False
-              
-#     def change_to_case_based(self):
-#         self.cased_flag = True
-#         self.lstm = nn.LSTM(self.embedding_dim+3, self.hidden_dim, self.num_layers, bidirectional=True)
-
-
-
-
 class LSTMTagger(nn.Module):
 
     def __init__(self, embedding_dim, vocab_size, tagset_size, num_layers, hidden_dim, vocabulary):
@@ -479,7 +418,7 @@ class LSTMTagger(nn.Module):
         self.TEXT = vocabulary[0]
         self.TAGS = vocabulary[1]
         self.CASED = vocabulary[2]
-        self.dropout_rate = 0.25
+        self.dropout_rate = 0.1
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers,
@@ -529,7 +468,6 @@ def create_vocab(data_fn, min_freq, TEXT, TAGS, CASED,  vectors, max_vocab_size,
     train_data = load_annotated_corpus(data_fn)
     unique_words = convert_to_csv_for_iterator(train_data, input_rep = input_rep)
     train = create_iterator(TEXT, TAGS,CASED, input_rep = input_rep)
-    #TODO check all options
     if max_vocab_size == -1: 
         TEXT.build_vocab(train, min_freq = min_freq, vectors = vectors, unk_init = torch.Tensor.normal_)
     elif len(unique_words) > max_vocab_size: 
@@ -692,13 +630,15 @@ def initialize_rnn_model(params_d, hidden_dim = 2):
         CASED = data.Field()
     else: 
         CASED = None 
+    
+    
     vectors = load_pretrained_embeddings(params_d['pretrained_embeddings_fn'])
     vocabulary = create_vocab(params_d['data_fn'], params_d['min_frequency'], TEXT, TAGS, CASED, vectors, params_d['max_vocab_size'], params_d['input_rep'])
     
     if "hidden_dim" not in params_d:  
         params_d['hidden_dim'] = hidden_dim
     
-    input_dim = min(params_d['max_vocab_size'], len(TEXT.vocab))    
+    input_dim = len(TEXT.vocab)
     lstm_model = LSTMTagger(params_d['embedding_dimension'],input_dim, params_d['output_dimension'], params_d['num_of_layers'],params_d['hidden_dim'], vocabulary = vocabulary)  
     
     lstm_model.apply(init_model_weights)
@@ -713,6 +653,25 @@ def initialize_rnn_model(params_d, hidden_dim = 2):
               'vocab': vocabulary}
 
     return model
+
+
+def read_vocab_from_file(path):
+    vectors = {}
+    with open(path, 'rb') as f:
+        for l in f:
+            line = l.decode().split()
+            word = line[0]
+            vect = np.array(line[1:]).astype(np.float)
+            vectors[word]=vect
+        return vectors
+
+def write_vocab_to_file(name,dict_):
+    with open(f'{name}', "w") as txt_file:
+        for word, i in dict_.items():
+           vec = " ".join(str(x) for x in dict_[word])
+           line = word+" "+vec+"\n"
+           txt_file.write(line)
+       
 
 def load_pretrained_embeddings(path, vocab=None, cached_name = 'vectors'):
     """ Returns an object with the the pretrained vectors, loaded from the
@@ -729,6 +688,16 @@ def load_pretrained_embeddings(path, vocab=None, cached_name = 'vectors'):
         vocab (list): a list of words to have embeddings for. Defaults to None.
 
     """
+    if vocab:
+        new_vocab_dict = {}
+        vocab_dict = read_vocab_from_file(path)
+        for word in vocab:
+            word = word.lower()
+            if word in vocab_dict:
+                new_vocab_dict[word] = vocab_dict[word]
+        path = "filterd_embddings.txt"
+        write_vocab_to_file(path,new_vocab_dict)
+    
     vectors = torch_vocab.Vectors(name = path, cache = cached_name, unk_init = torch.Tensor.normal_)
 
     return vectors
@@ -830,9 +799,8 @@ def train_rnn(model, train_data, val_data = None):
     # 4. some of the above could be implemented in helper functions (not part of
     #    the required API)
 
-    #TODO complete the code
     BATCH_SIZE = 128
-    N_EPOCHS = 30
+    N_EPOCHS = 1
     input_rep = model['input_rep']
     
     lstm_model = model['lstm']
@@ -895,7 +863,6 @@ def rnn_tag_sentence(sentence, model):
     input_rep = model['input_rep']
     
     vocabulary = TEXT.vocab.stoi
-    vocabulary_cased = CASED.vocab.stoi
     vocabulary_tag = TAGS.vocab.itos
     
 
@@ -907,6 +874,7 @@ def rnn_tag_sentence(sentence, model):
     with torch.no_grad():    
         sentence_lower = sentence_lower.to(device)
         if input_rep:
+            vocabulary_cased = CASED.vocab.stoi
             sentence_cased = [[vocabulary_cased[word] for word in sentence]]
             sentence_cased = torch.tensor(sentence_cased,dtype=torch.long)
             sentence_cased = sentence_cased.to(device)    
@@ -930,436 +898,23 @@ def get_best_performing_model_params():
         a model and train a model by calling
                initialize_rnn_model() and train_lstm()
     """
-    #TODO complete the code
+    #TODO check fill with real best params
+
     
     model_params = {'max_vocab_size': 20_000,
-                        'min_frequency': 1,
+                        'min_frequency': 2,
                         'input_rep': 1,
                         'embedding_dimension': 100,
                         'num_of_layers': 5,
                         'output_dimension': 18,
                         #TODO change path to same directory for both data files
-                        'pretrained_embeddings_fn': "embeddings/glove.6B.100d.txt",
+                        'pretrained_embeddings_fn': "glove.6B.100d.txt",
                         'data_fn': "data/en-ud-train.upos.tsv",
-                        "hidden_dim" : 128
+                        "hidden_dim" : 8
                         }
     
     return model_params
 
-
-
-# class LSTMTagger(nn.Module):
-
-#     def __init__(self, embedding_dim, vocab_size, tagset_size, num_layers, hidden_dim):
-#         super(LSTMTagger, self).__init__()
-#         self.num_layers = num_layers
-#         self.hidden_dim = hidden_dim
-#         self.embedding_dim = embedding_dim
-#         self.input_dim = vocab_size
-#         self.output_dim = tagset_size
-#         self.cased_flag = False
-#         self.batch_size = 1
-#         # The LSTM takes word embeddings as inputs, and outputs hidden states
-#         # with dimensionality hidden_dim.
-#         self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers, bidirectional=True)
-
-#         # The linear layer that maps from hidden state space to tag space
-#         self.hidden2tag = nn.Linear(hidden_dim*2, tagset_size)
-#         self.word_to_ix = {}
-#         self.tag_to_ix = {}
-
-#     def init_hidden(self):
-#         # the weights are of the form (nb_layers, batch_size, nb_lstm_units)
-#         hidden_a = torch.randn(self.num_layers, self.batch_size, self.hidden_dim)
-#         hidden_b = torch.randn(self.num_layers, self.batch_size, self.hidden_dim)
-
-
-#         hidden_a = Variable(hidden_a)
-#         hidden_b = Variable(hidden_b)
-
-#         return (hidden_a, hidden_b)
-#     def forward(self, sentence, case_based_vectors = None):
-#         self.hidden = self.init_hidden()
-        
-        
-#         embeds = self.word_embeddings(sentence) 
-#         if self.cased_flag:
-#             embeds = torch.cat([embeds, case_based_vectors], dim = 1)
-
-#         lstm_out, self.hidden = self.lstm(embeds.view(len(sentence), 1, -1))
-#         tag_space = self.hidden2tag(lstm_out.view(len(sentence), -1))
-#         tag_scores = F.log_softmax(tag_space, dim = 1)
-        
-#         return tag_scores
-    
-#     def load_embeddings(self, weights_matrix,vocab_size, non_trainable = True):
-#         self.word_embeddings = nn.Embedding(vocab_size, self.embedding_dim)
-#         self.input_dim = vocab_size
-#         self.word_embeddings.load_state_dict({'weight': torch.from_numpy(weights_matrix)})
-#         if non_trainable:
-#              self.word_embeddings.weight.requires_grad = False
-              
-#     def change_to_case_based(self):
-#         self.cased_flag = True
-#         self.lstm = nn.LSTM(self.embedding_dim+3, self.hidden_dim, self.num_layers, bidirectional=True)
-
-        
-
-    
-
-# """ You are required to support two types of bi-LSTM:
-#     1. a vanilla biLSTM in which the input layer is based on simple word embeddings
-#     2. a case-based BiLSTM in which input vectors combine a 3-dim binary vector
-#         encoding case information, see
-#         https://arxiv.org/pdf/1510.06168.pdf
-# """
-
-# # Suggestions and tips, not part of the required API
-# #
-# #  1. You can use PyTorch torch.nn module to define your LSTM, see:
-# #     https://pytorch.org/docs/stable/generated/torch.nn.LSTM.html#torch.nn.LSTM
-# #  2. You can have the BLSTM tagger model(s) implemented in a dedicated class
-# #     (this could be a subclass of torch.nn.Module)
-# #  3. Think about padding.
-# #  4. Consider using dropout layers
-# #  5. Think about the way you implement the input representation
-# #  6. Consider using different unit types (LSTM, GRU,LeRU)
-
-
-# def initialize_rnn_model(params_d, hidden_dim = 6):
-#     """Returns a dictionary with the objects and parameters needed to run/train_rnn
-#        the lstm model. The LSTM is initialized based on the specified parameters.
-#        thr returned dict is may have other or additional fields.
-
-#     Args:
-#         params_d (dict): a dictionary of parameters specifying the model. The dict
-#                         should include (at least) the following keys:
-#                         {'max_vocab_size': max vocabulary size (int),
-#                         'min_frequency': the occurence threshold to consider (int),
-#                         'input_rep': 0 for the vanilla and 1 for the case-base (int),
-#                         'embedding_dimension': embedding vectors size (int),
-#                         'num_of_layers': number of layers (int),
-#                         'output_dimension': number of tags in tagset (int),
-#                         'pretrained_embeddings_fn': str,
-#                         'data_fn': str
-#                         }
-#                         max_vocab_size sets a constraints on the vocab dimention.
-#                             If the its value is smaller than the number of unique
-#                             tokens in data_fn, the words to consider are the most
-#                             frequent words. If max_vocab_size = -1, all words
-#                             occuring more that min_frequency are considered.
-#                         min_frequency privides a threshold under which words are
-#                             not considered at all. (If min_frequency=1 all words
-#                             up to max_vocab_size are considered;
-#                             If min_frequency=3, we only consider words that appear
-#                             at least three times.)
-#                         input_rep (int): sets the input representation. Values:
-#                             0 (vanilla), 1 (case-base);
-#                             <other int>: other models, if you are playful
-#                         The dictionary can include other keys, if you use them,
-#                              BUT you shouldn't assume they will be specified by
-#                              the user, so you should spacify default values.
-#     Return:
-#         a dictionary with the at least the following key-value pairs:
-#                                        {'lstm': torch.nn.Module object,
-#                                        input_rep: [0|1]}
-#         #Hint: you may consider adding the embeddings and the vocabulary
-#         #to the returned dict
-#     """
-    
-
-#     params_d['hidden_dim'] = hidden_dim
-#     lstm_model = LSTMTagger(params_d['embedding_dimension'],params_d['max_vocab_size'],params_d['output_dimension'], params_d['num_of_layers'],params_d['hidden_dim'])  
-#     model = {'lstm':lstm_model, 
-#              'input_rep' :params_d['input_rep'], 
-#              'max_vocab_size'}
-    
-#     return model
-
-# def get_model_params(model):
-#     """Returns a dictionary specifying the parameters of the specified model.
-#     This dictionary should be used to create another instance of the model.
-
-#     Args:
-#         model (torch.nn.Module): the network architecture
-
-#     Return:
-#         a dictionary, containing at least the following keys:
-#         {'input_dimension': int,
-#         'embedding_dimension': int,
-#         'num_of_layers': int,
-#         'output_dimension': int}
-#     """
-#     params_d = {'input_dimension':model.input_dim, 
-#                 'embedding_dimension':model.embedding_dim, 
-#                 'num_of_layers': model.num_layers, 
-#                 'output_dimension': model.output_dim,
-#                 'hidden_dim' : model.hidden_dim}
-
-#     return params_d
-
-
-# def load_pretrained_embeddings(path, vocab = None):
-#     """ Returns an object with the the pretrained vectors, loaded from the
-#         file at the specified path. The file format is the same as
-#         https://www.kaggle.com/danielwillgeorge/glove6b100dtxt
-#         The format of the vectors object is not specified as it will be used
-#         internaly in your code, so you can use the datastructure of your choice.
-#     """
-#     vectors = {}
-    
-#     with open(path, 'rb') as f:
-#         for l in f:
-#             line = l.decode().split()
-#             word = line[0]
-#             vect = np.array(line[1:]).astype(np.float)
-#             vectors[word]=vect
-
-#     return vectors
-
-
-# def case_based_function(word):
-#     if word.islower():
-#         vec = np.array([1,0,0])
-#     elif word.isupper():
-#         vec = np.array([0,1,0])
-#     elif word == UNK:
-#         vec = np.array([0,0,0])
-#     else:
-#         vec = np.array([0,0,1])
-#     return vec
-
-# def create_case_based_vectors(data):
-#     #: vector will be in the format (fullLower, fullUpper, combined)
-#     words_case_vector_dict = {}
-#     for sentence in data:
-#         for word,tag in sentence:    
-#             vec = case_based_function(word)
-#             words_case_vector_dict[word.lower()] = vec
-#     return words_case_vector_dict
-
-
-# def process_data(data):
-#     word_to_ix = {}
-#     tag_to_ix = {}
-#     training_data = []
-    
-#     for sentence in data:
-#         words = []
-#         tags = []
-#         for word,tag in sentence:
-#             words.append(word.lower())
-#             tags.append(tag)
-#             if word not in word_to_ix:
-#                 word_to_ix[word.lower()] = len(word_to_ix)
-#             if tag not in tag_to_ix:
-#                 tag_to_ix[tag] = len(tag_to_ix)
-#         training_data.append((words, tags))
-    
-#     word_to_ix[UNK] = len(word_to_ix)
-
-    
-#     return word_to_ix, tag_to_ix, training_data
-
-# def convert_to_csv_for_iterator(data, data_name = "train"):
-#     all_sentences_list = []
-#     all_tags_list = []
-    
-#     for sentence in data:
-#         words = []
-#         tags = []
-#         for word,tag in sentence:
-#             words.append(word.lower())
-#             tags.append(tag)
-#         words_combined = " ".join(words)
-#         tags_combined = " ".join(tags)
-#         all_sentences_list.append(words_combined)
-#         all_tags_list.append(tags_combined)
-    
-#     df = pd.DataFrame(list(zip(all_sentences_list, all_tags_list)), 
-#                columns =['words', 'tags'])
-#     df.to_csv(f"{data_name}.csv")
-
-# def create_iterator(data_name = "train"):
-    
-#     TEXT = data.Field(lower = True)
-#     UD_TAGS = data.Field(unk_token = UNK)
-#     path = f"{data_name}.csv"
-#     fields = [
-#      (None,None),     
-#     ('text',TEXT ), 
-#     ("udtags", UD_TAGS)]
-    
-#     tablular_data = data.TabularDataset(path=path, format='csv', fields=fields,skip_header = True)
-    
-#     return tablular_data
-
-# def train_rnn(model, data_fn, pretrained_embeddings_fn, input_rep = 0):
-#     """Trains the BiLSTM model on the specified data.
-
-#     Args:
-#         model (torch.nn.Module): the model to train
-#         data_fn (string): full path to the file with training data (in the provided format)
-#         pretrained_embeddings_fn (string): full path to the file with pretrained embeddings
-#         input_rep (int): sets the input representation. Defaults to 0 (vanilla),
-#                          1: case-base; <other int>: other models, if you are playful
-#     """
-#     #Tips:
-#     # 1. you have to specify an optimizer
-#     # 2. you have to specify the loss function and the stopping criteria
-#     # 3. consider loading the data and preprocessing it
-#     # 4. consider using batching
-#     # 5. some of the above could be implemented in helper functions (not part of
-#     #    the required API)
-
-#     train_data = load_annotated_corpus(data_fn)
-#     convert_to_csv_for_iterator(train_data)
-#     epochs = 1
-    
-#     if input_rep == 1:
-#         words_case_vector_dict = create_case_based_vectors(train_data)
-
-#         model.change_to_case_based()
-    
-#     batch_size = 128    
-#     train_iterator =  data.BucketIterator(train_data, sort_key=lambda x: len(x.text), batch_size = batch_size, sort_within_batch = True)
-    
-#     #: creating the word_to_ix and tag_to_ix dicts 
-#     #: and converting data to training data - change the list of tuples to a tuple of lists 
-#     #TODO chage to vocab?
-#     word_to_ix, tag_to_ix, training_data = process_data(train_data)
-    
-#     #TODO change pad_index
-#     pad_index = len(tag_to_ix)+1
-#     criterion = nn.CrossEntropyLoss(ignore_index= pad_index) #you can set the parameters as you like
-    
-#     #TODO remove before submission. leave only the line that creates the vector
-#     if create_vectors:
-#         vectors = load_pretrained_embeddings(pretrained_embeddings_fn)    
-#         pickle.dump(vectors, open('embeddings/vectors.pkl', 'wb'))
-#     else:
-#         vectors = pickle.load(open('embeddings/vectors.pkl', 'rb'))
-    
-#     weighted_matrix = create_weighted_matrix(word_to_ix, vectors, emb_dim = model.embedding_dim)
-#     model.load_embeddings(weighted_matrix, len(word_to_ix))
-    
-#     optimizer = optim.SGD(model.parameters(), lr=0.1)
-#     model.word_to_ix = word_to_ix
-#     model.tag_to_ix = tag_to_ix
-    
-    
-#     for epoch in range(epochs):  # again, normally you would NOT do 300 epochs, it is toy data
-#         for sentence, tags in training_data:
-#             # Step 1. Remember that Pytorch accumulates gradients.
-#             # We need to clear them out before each instance
-#             model.zero_grad()
-    
-    
-#             # Step 2. Get our inputs ready for the network, that is, turn them into
-#             # Variables of word indices.
-#             sentence_in = prepare_sequence(sentence, word_to_ix)
-#             targets = prepare_sequence(tags, tag_to_ix)
-    
-#             # Step 3. Run our forward pass.
-#             if input_rep == 1:
-#                 case_based_vectors = torch.tensor([words_case_vector_dict[word] for word in sentence])
-#                 tag_scores = model(sentence_in, case_based_vectors)
-                
-#             else:
-#                 tag_scores = model(sentence_in)
-    
-#             # Step 4. Compute the loss, gradients, and update the parameters by
-#             #  calling optimizer.step()
-#             loss = criterion(tag_scores, targets)
-#             loss.backward()
-#             optimizer.step()
-    
-#     model = model.to(device)
-#     criterion = criterion.to(device)
-
-# # helper function for the train bilstm: 
-# def prepare_sequence(seq, to_ix):
-#     idxs = [to_ix[w] for w in seq]
-#     return torch.tensor(idxs, dtype=torch.long)
-
-# def rnn_tag_sentence(sentence, model, input_rep = 0):
-#     """ Returns a list of pairs (w,t) where each w corresponds to a word
-#         (same index) in the input sentence. Tagging is done with the Viterby
-#         algorithm.
-
-#     Args:
-#         sentence (list): a list of tokens (the sentence to tag)
-#         model (torch.nn.Module):  a trained BiLSTM model
-#         input_rep (int): sets the input representation. Defaults to 0 (vanilla),
-#                          1: case-base; <other int>: other models, if you are playful
-
-#     Return:
-#         list: list of pairs
-#     """
-
-#     word_to_ix = model.word_to_ix
-#     sentence_lower_UNK = []
-#     sentence_UNK = []
-#     for word in sentence:
-#         sentence_lower_UNK_word = sentence_UNK_word = UNK
-
-#         lower_word = word.lower()
-#         if lower_word in word_to_ix.keys():
-#             sentence_UNK_word = word
-#             sentence_lower_UNK_word = lower_word
-            
-#         sentence_lower_UNK.append(sentence_lower_UNK_word)
-#         sentence_UNK.append(sentence_UNK_word)
-
-#     with torch.no_grad():
-#         inputs = prepare_sequence(sentence_lower_UNK, word_to_ix)
-#         if input_rep == 1:
-#             case_based_vectors = torch.tensor([case_based_function(word) for word in sentence_UNK])
-            
-#             case_based_vectors = case_based_vectors.to(device)
-#             inputs = inputs.to(device)
-#             tag_scores = model(inputs,case_based_vectors)
-#         else:
-#             tag_scores = model(inputs)
-    
-#     tags_idx = np.argmax(tag_scores, axis = 1).tolist()
-#     idx_tag_dict = {v:k for k,v in model.tag_to_ix.items()}
-#     predicted_tags = [idx_tag_dict[i] for i in tags_idx]
-#     tagged_sentence = [(word, tag) for word, tag in zip(sentence, predicted_tags)]
-
-#     return tagged_sentence
-
-# def get_best_performing_model_params():
-#     """Returns a disctionary specifying the parameters of your best performing
-#         BiLSTM model.
-#         IMPORTANT: this is a *hard coded* dictionary that will be used to create
-#         a model and train a model by calling
-#                initialize_rnn_model() and train_lstm()
-#     """
-#     #TODO How do we know the input dimensions? 
-#     model_params = {'input_dimension': 16654,
-#                     'embedding_dimension': 100,
-#                     'num_of_layers': 2, 
-#                     'output_dimension': 17}
-
-#     return model_params
-
-
-# ##: Helper function to use pretrained embeddings
-# def create_weighted_matrix(target_vocab, vectors, emb_dim):
-#     matrix_len = len(target_vocab)
-#     weights_matrix = np.zeros((matrix_len, emb_dim))
-#     words_found = 0
-    
-#     for i, word in enumerate(target_vocab.keys()):
-#         try: 
-#             weights_matrix[i] = vectors[word]
-#             words_found += 1
-#         except KeyError:
-#             weights_matrix[i] = np.random.normal(scale=0.6, size=(emb_dim, ))
-#     return weights_matrix
-
-   
 
 #===========================================================
 #       Wrapper function (tagging with a specified model)
@@ -1372,14 +927,14 @@ def tag_sentence(sentence, model):
     Args:
         sentence (list): a list of tokens (the sentence to tag)
         model (dict): a dictionary where key is the model name and the value is
-        an ordered list of the parameters of the trained model (baseline, HMM)
-        or the model isteld and the input_rep flag (LSTMs).
+           an ordered list of the parameters of the trained model (baseline, HMM)
+           or the model isteld and the input_rep flag (LSTMs).
 
         Models that must be supported (you can add more):
         1. baseline: {'baseline': [perWordTagCounts, allTagCounts]}
         2. HMM: {'hmm': [A,B]}
-        3. Vanilla BiLSTM: {'blstm':[Torch.nn.Module, input_rep]}
-        4. BiLSTM+case: {'cblstm': [Torch.nn.Module, input_rep]}
+        3. Vanilla BiLSTM: {'blstm':[model_dict]}
+        4. BiLSTM+case: {'cblstm': [model_dict]}
         5. (NOT REQUIRED: you can add other variations, agumenting the input
             with further subword information, with character-level word embedding etc.)
 
@@ -1391,22 +946,25 @@ def tag_sentence(sentence, model):
         A (dict): The HMM Transition probabilities
         B (dict): tthe HMM emmission probabilities.
 
-        Parameters for an LSTM:
-        the neural network model
-        input_rep (int) - must support 0 and 1 (vanilla and case-base, respectively)
+        Parameters for an LSTM: the model dictionary (allows tagging the given sentence)
 
 
     Return:
         list: list of pairs
     """
-    if list(model.keys())[0]=='baseline':
-        return baseline_tag_sentence(sentence, model.values()[0], model.values()[1])
-    if list(model.keys())[0]=='hmm':
-        return hmm_tag_sentence(sentence, model.values()[0], model.values()[1])
-    if list(model.keys())[0] == 'blstm':
-        return rnn_tag_sentence(sentence, model.values()[0])
-    if list(model.keys())[0] == 'cblstm':
-        return rnn_tag_sentence(sentence, model.values()[0])
+    key = list(model.keys())[0]
+    values = model[key]
+
+    
+    if key == 'baseline':
+        return baseline_tag_sentence(sentence, *values)
+    if key == 'hmm':
+        return hmm_tag_sentence(sentence, *values)
+    if key == 'blstm':
+        return rnn_tag_sentence(sentence, *values)
+    if key == 'cblstm':
+        return rnn_tag_sentence(sentence, *values)
+
 
 def count_correct(gold_sentence, pred_sentence):
     """Return the total number of correctly predicted tags,the total number of
