@@ -418,7 +418,7 @@ class LSTMTagger(nn.Module):
         self.TEXT = vocabulary[0]
         self.TAGS = vocabulary[1]
         self.CASED = vocabulary[2]
-        self.dropout_rate = 0.1
+        self.dropout_rate = 0.27
         # The LSTM takes word embeddings as inputs, and outputs hidden states
         # with dimensionality hidden_dim.
         self.lstm = nn.LSTM(embedding_dim, hidden_dim, num_layers,
@@ -899,7 +899,6 @@ def get_best_performing_model_params():
         a model and train a model by calling
                initialize_rnn_model() and train_lstm()
     """
-    #TODO check fill with real best params
 
     
     model_params = {'max_vocab_size': 20_000,
@@ -908,7 +907,6 @@ def get_best_performing_model_params():
                         'embedding_dimension': 100,
                         'num_of_layers': 5,
                         'output_dimension': 18,
-                        #TODO change path to same directory for both data files
                         'pretrained_embeddings_fn': "glove.6B.100d.txt",
                         'data_fn': "data/en-ud-train.upos.tsv",
                         "hidden_dim" : 128
