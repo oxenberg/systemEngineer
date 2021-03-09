@@ -39,3 +39,5 @@ NLP/ex_4/case_vectors.txt
 NLP/ex_4/glove.6B.100d.txt
 NLP/ex_4/filterd_embddings.txt
 NLP/ex_4/filterd_embddings.txt.txt
+RecSys/Ex1/userTestData.csv
+*.csv
