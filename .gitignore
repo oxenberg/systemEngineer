@@ -41,3 +41,4 @@ NLP/ex_4/filterd_embddings.txt
 NLP/ex_4/filterd_embddings.txt.txt
 RecSys/Ex1/userTestData.csv
 *.csv
+*.db
