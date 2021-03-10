@@ -9,38 +9,60 @@ Created on Tue Mar  9 10:37:08 2021
 import pandas as pd 
 import time
 from sqlalchemy import create_engine
+import os.path
+from os import path 
 
+
+class Database():
+    def __init__(self, write_to_database = False):
+        self.files = ['userTrainData', 'userTestData', 'yelp_business', 'yelp_user']
+        self.yelp_database = create_engine('sqlite:///yelp_database.db')
+        self.write_to_database(write_to_database)
+    
+    def write_to_database(self,write_to_database):
+        
+        if write_to_database:
+            for file in self.files: 
+                self.create_table(file)
+    
+    def create_table(self, file):
+        file_name = file+'.csv'
+        chunksize = 100000
+        i = 0
+        j = 1
+        #: For trainData and testData we want to remove the index column. 
+        if file ==self.files[0] or file ==self.files[1]:
+            index_col = "Unnamed: 0"
+        else: 
+            index_col = None
+        for df in pd.read_csv(file_name, chunksize=chunksize, iterator=True, index_col = index_col):
+              df = df.rename(columns={c: c.replace(' ', '') for c in df.columns})
+              df.index += j
+              i+=1
+              df.to_sql(file, self.yelp_database, if_exists='append')
+              j = df.index[-1] + 1        
+              
+              
+    def query_database(self, query):
+        df = pd.read_sql_query(query, self.yelp_database)
+        return df 
+
+              
+  
 
 
 
 def Load():
-    trainData = pd.read_csv("userTrainData.csv", index_col="Unnamed: 0", dtype={"user_id": str, 
-                                                                            "business_id": str, 
-                                                                            "stars": int, 
-                                                                            "text":str})
-    testData = pd.read_csv("userTestData.csv", index_col="Unnamed: 0", dtype={"user_id": str, 
-                                                                            "business_id": str, 
-                                                                            "stars": int, 
-                                                                            "text":str})
-    buisnessData = pd.read_csv("yelp_business.csv")    
-    userData = pd.read_csv("yelp_user.csv")
-    
-    return trainData, testData, userData, buisnessData
-
-file  = "userTrainData.csv"
-csv_database = create_engine('sqlite:///csv_database.db')
-chunksize = 100000
-i = 0
-j = 1
-for df in pd.read_csv(file, chunksize=chunksize, iterator=True):
-      df = df.rename(columns={c: c.replace(' ', '') for c in df.columns})
-      df.index += j
-      i+=1
-      df.to_sql('table', csv_database, if_exists='append')
-      j = df.index[-1] + 1
+    write_to_database = True
+    if path.exists("yelp_database.db"):
+        write_to_database = False 
+    DB = Database(write_to_database)
+    return DB
 
 
-df = pd.read_sql_query('SELECT * FROM table', csv_database)
+DB = Load()
+query = 'SELECT business_id, AVG(stars) as avg_stars FROM userTrainData GROUP BY business_id'
+df = DB.query_database(query)
 
 
 # start_time = time.time()
