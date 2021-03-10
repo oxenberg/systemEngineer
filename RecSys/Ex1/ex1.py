@@ -15,7 +15,10 @@ from os import path
 
 class Database():
     def __init__(self, write_to_database = False):
-        self.files = ['userTrainData', 'userTestData', 'yelp_business', 'yelp_user']
+        self.files = {'userTrainData':"Unnamed: 0",
+                      'userTestData':"Unnamed: 0", 
+                      'yelp_business':"buisness_id", 
+                      'yelp_user': "user_id"}
         self.yelp_database = create_engine('sqlite:///yelp_database.db')
         self.write_to_database(write_to_database)
     
@@ -31,11 +34,7 @@ class Database():
         i = 0
         j = 1
         #: For trainData and testData we want to remove the index column. 
-        if file ==self.files[0] or file ==self.files[1]:
-            index_col = "Unnamed: 0"
-        else: 
-            index_col = None
-        for df in pd.read_csv(file_name, chunksize=chunksize, iterator=True, index_col = index_col):
+        for df in pd.read_csv(file_name, chunksize=chunksize, iterator=True, index_col = self.files[file]):
               df = df.rename(columns={c: c.replace(' ', '') for c in df.columns})
               df.index += j
               i+=1
