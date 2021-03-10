@@ -27,21 +27,21 @@ def Load():
     
     return trainData, testData, userData, buisnessData
 
-file  = "userTrainData.csv"
+file  = "userTestData.csv"
 csv_database = create_engine('sqlite:///csv_database.db')
-chunksize = 100000
-i = 0
-j = 1
-for df in pd.read_csv(file, chunksize=chunksize, iterator=True):
-      df = df.rename(columns={c: c.replace(' ', '') for c in df.columns})
-      df.index += j
-      i+=1
-      df.to_sql('table', csv_database, if_exists='append')
-      j = df.index[-1] + 1
+# chunksize = 100000
+# i = 0
+# j = 1
+# for df in pd.read_csv(file, chunksize=chunksize, iterator=True):
+#       df = df.rename(columns={c: c.replace(' ', '') for c in df.columns})
+#       df.index += j
+#       i+=1
+#       df.to_sql('user_table', csv_database, if_exists='append')
+#       j = df.index[-1] + 1
 
-
-df = pd.read_sql_query('SELECT * FROM table', csv_database)
-
+print("read from DB")
+df = pd.read_sql_query('SELECT * FROM user_table', csv_database)
+print(df.head())
 
 # start_time = time.time()
 # Load()
