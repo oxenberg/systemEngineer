@@ -8,6 +8,7 @@ Created on Tue Mar  9 10:37:08 2021
 
 import pandas as pd 
 import time
+from sqlalchemy import create_engine
 
 
 
@@ -26,8 +27,24 @@ def Load():
     
     return trainData, testData, userData, buisnessData
 
-start_time = time.time()
-Load()
-end_time = time.time()
-print(f"time to load data:{end_time - start_time}")
+file  = "userTrainData.csv"
+csv_database = create_engine('sqlite:///csv_database.db')
+chunksize = 100000
+i = 0
+j = 1
+for df in pd.read_csv(file, chunksize=chunksize, iterator=True):
+      df = df.rename(columns={c: c.replace(' ', '') for c in df.columns})
+      df.index += j
+      i+=1
+      df.to_sql('table', csv_database, if_exists='append')
+      j = df.index[-1] + 1
+
+
+df = pd.read_sql_query('SELECT * FROM table', csv_database)
+
+
+# start_time = time.time()
+# Load()
+# end_time = time.time()
+# print(f"time to load data:{end_time - start_time}")
 
