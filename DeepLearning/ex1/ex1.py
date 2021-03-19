@@ -12,25 +12,22 @@ import numpy as np
 import tensorflow.keras as keras
 
 
-
-
 class NeuralNetwork():
     def __init__(self, layers_dims):
         self.network = self.initialize_parameters(layers_dims)
 
-
-    def fit(self,data):
+    def fit(self, data):
         return
 
     #### Train and predict
-    def L_layer_model(self,X, Y, layers_dims, learning_rate, num_iterations, batch_size):
+    def L_layer_model(self, X, Y, layers_dims, learning_rate, num_iterations, batch_size):
         return
 
-    def Predict(self,X, Y, parameters):
+    def Predict(self, X, Y, parameters):
         return
 
-    #### Forward
-    def initialize_parameters(self,layer_dims):
+    # Forward
+    def initialize_parameters(self, layer_dims):
         '''
 
         create dict that represent the network layers
@@ -47,16 +44,16 @@ class NeuralNetwork():
         '''
 
         network_weights = {}
-        for index in range(1,len(layer_dims)):
+        for index in range(1, len(layer_dims)):
             layer_name = f"layer_{index}"
 
             prev_layer_dim = layer_dims[index-1]
             current_layer_dim = layer_dims[index]
             #: create weight matrix with current layer number of neuron, columns - previous
-            w_matrix = np.random.rand(current_layer_dim,prev_layer_dim)
+            w_matrix = np.random.rand(current_layer_dim, prev_layer_dim)
             bias_vector = np.random.rand(prev_layer_dim)
 
-            network_weights[layer_name] = {"w" : w_matrix, "b" : bias_vector }
+            network_weights[layer_name] = {"w": w_matrix, "b": bias_vector}
 
         return network_weights
 
@@ -69,7 +66,7 @@ class NeuralNetwork():
 
         :return: Z: vector, the linear component of the activation function
         :return linear_cache: a dictionary containing A, W, b
-        
+
         '''
 
         Z = np.dot(W, A) + b
@@ -77,8 +74,7 @@ class NeuralNetwork():
         linear_cache = {"A": A, "W": W, "b": b}
         return Z, linear_cache
 
-
-    def softmax( self, Z):
+    def softmax(self, Z):
         '''
         softmax function
 
@@ -102,7 +98,6 @@ class NeuralNetwork():
 
         activation_cache = Z
 
-
         return A, activation_cache
 
     def relu(self, Z):
@@ -121,7 +116,7 @@ class NeuralNetwork():
 
         return A, activation_cache
 
-    def linear_activation_forward(self,A_prev, W, B, activation):
+    def linear_activation_forward(self, A_prev, W, B, activation):
         '''
 
         one layer forword propagation
@@ -136,17 +131,18 @@ class NeuralNetwork():
 
         '''
 
-        Z,linear_cache = self.linear_forward(A_prev,W,B)
+        Z, linear_cache = self.linear_forward(A_prev, W, B)
 
         if activation == "softmax":
             A, activation_cache = self.softmax(Z)
         else:
             A, activation_cache = self.relu(Z)
 
-        cache = {"linear_cache" : linear_cache, "activation_cache" : activation_cache}
+        cache = {"linear_cache": linear_cache,
+                 "activation_cache": activation_cache}
         return A, cache
 
-    def L_model_forward(self,X, parameters, use_batchnorm):
+    def L_model_forward(self, X, parameters, use_batchnorm):
         '''
 
         make forward propagation for epoch
@@ -170,7 +166,8 @@ class NeuralNetwork():
 
         for layer in parameters.values():
 
-            A,cache = self.linear_activation_forward(A, layer["w"], layer["b"])
+            A, cache = self.linear_activation_forward(
+                A, layer["w"], layer["b"])
 
             if use_batchnorm:
                 col_sums = A.sum(axis=0)
@@ -180,7 +177,7 @@ class NeuralNetwork():
 
         return A, caches
 
-    def compute_cost(self,AL, Y):
+    def compute_cost(self, AL, Y):
         '''
 
         :param AL: probability vector corresponding to your label predictions, shape (num_of_classes, number of examples)
@@ -203,27 +200,85 @@ class NeuralNetwork():
 
         return cost
 
-    def apply_batchnorm(self,A):
+    def apply_batchnorm(self, A):
         return
 
-    #### Backward: 
-    def Linear_backward(self,dZ, cache):
-        return
+    # Backward:
+    def Linear_backward(self, dZ, cache):
+        # TODO: make sure shapes align
 
-    def linear_activation_backward(self,dA, cache, activation):
-        return
+        dW = np.dot(dZ, np.transpose(cache["A_prev"]))
+        db = dZ
+        dA_prev = np.dot(dZ, np.transpose(cache['W']))
 
-    def relu_backward (self,dA, activation_cache):
-        return
+        return dA_prev, dW, db
 
+    def linear_activation_backward(self, dA, cache, activation):
+        '''
+            activation is the activation function in the current layer.
+            chache: will be a list of tuples - each tuple will have the activation cache as the firse element,
+            and the linear cache as the second element
+        '''
+        linear_cache = cache['linear_cache']
+        if activation == 'softmax':
+            dZ = self.softmax_backward(dA, cache['activation_cache'])
+            dA_prev, dW, db = self.Linear_backward(dZ, linear_cache)
+        else:
+            dZ = self.relu_backward(dA, cache['activation_cache'])
+            dA_prev, dW, db = self.Linear_backward(dZ, linear_cache)
 
-    def softmax_backward (self,dA, activation_cache):
-        return
+        return dA_prev, dW, db
 
-    def L_model_backward(self,AL, Y, caches):
-        return
+    def relu_backward(self, dA, activation_cache):
+        Z = activation_cache['Z']
+        A, Z = self.relu(Z)
+        dZ = dA * np.int64(A > 0)
 
-    def Update_parameters(self,parameters, grads, learning_rate):
-        return
+        return dZ
 
+    def softmax_backward(self, dA, activation_cache):
+        dZ = dA
+        return dZ
 
+    def L_model_backward(self, AL, Y, caches):
+        '''
+        chaches: will be a list of dictionaries - each dictionart will have the activation cache 
+        and the linear cache of each layer
+
+        '''
+        grads = {}
+        layers = len(caches)
+
+        dA = AL-Y
+        grads["dA"+str(layers)]
+
+        # The last layer:
+        grads["dA"+str(layers-1)], grads["dW"+str(layers)], grads["db"+str(layers)] = \
+            self.linear_activation_backward(dA, caches[layers-1], "softmax")
+
+        # Rest of the layers:
+        for layer in range(layers-1, 0, -1):
+            grads["dA"+str(layer-1)], grads["dW"+str(layer)], grads["db"+str(layer)] = \
+                self.linear_activation_backward(
+                    grads["dA"+str(layer)], caches[layer-1], "relu")
+
+        return grads
+
+    def Update_parameters(self, parameters, grads, learning_rate):
+        '''{
+            layer_n: {
+                w: <matrix of weights from layer n-1 to n>
+                row - current layer number of neuron, columns - previous
+                b: <vector of bias from layer n-1 to n>
+        }'''
+        layers = len(parameters)
+
+        for layer in range(1, layers + 1):
+            # update w
+            parameters["layer_"+str(layer)]['w'] = parameters["layer_" +
+                                                              str(layer)]['w'] - learning_rate*grads['dW'+str(layer)]
+            # update b
+            parameters["layer_"+str(layer)]['b'] = parameters["layer_" +
+                                                              str(layer)]['b'] - learning_rate*grads['db'+str(layer)]
+
+        return parameters
