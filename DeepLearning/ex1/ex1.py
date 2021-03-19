@@ -108,12 +108,12 @@ class NeuralNetwork():
  
         ## The last layer: 
         grads["dA"+str(layers-1)], grads["dW"+str(layers)],grads["db"+str(layers)] = \
-            self.linear_activation_backward(dA, caches[layers], "softmax")
+            self.linear_activation_backward(dA, caches[layers-1], "softmax")
         
         # Rest of the layers: 
         for layer in range(layers-1, 0, -1): 
             grads["dA"+str(layer-1)], grads["dW"+str(layer)],grads["db"+str(layer)] = \
-    self.linear_activation_backward(grads["dA"+str(layer)], caches[layer], "relu")
+    self.linear_activation_backward(grads["dA"+str(layer)], caches[layer-1], "relu")
         
         return grads
     
