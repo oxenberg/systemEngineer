@@ -74,10 +74,10 @@ class NeuralNetwork():
         linear_cache = cache['linear_cache']
         if activation == 'softmax':     
             dZ = self.softmax_backward(dA, cache['activation_cache'])
-            dA_prev, dW, db = Linear_backward(dZ, linear_cache)            
+            dA_prev, dW, db = self.Linear_backward(dZ, linear_cache)            
         else: 
             dZ = self.relu_backward(dA, cache['activation_cache'])
-            dA_prev, dW, db = Linear_backward(dZ, linear_cache)
+            dA_prev, dW, db = self.Linear_backward(dZ, linear_cache)
         
         
         return dA_prev, dW, db 
@@ -107,19 +107,30 @@ class NeuralNetwork():
         grads["dA"+str(layers)]
  
         ## The last layer: 
-        grads["dA"+str(layers-1)], grads["dW"+str(layers)],grads["db"+str(layers)]) = 
-    linear_activation_backward(dA, chach[layers], "softmax")
+        grads["dA"+str(layers-1)], grads["dW"+str(layers)],grads["db"+str(layers)] = \
+            self.linear_activation_backward(dA, caches[layers], "softmax")
         
         # Rest of the layers: 
         for layer in range(layers-1, 0, -1): 
-            grads["dA"+str(layer-1)], grads["dW"+str(layer)],grads["db"+str(layer)]) = 
-    linear_activation_backward(grads["dA"+str(layer), chach[layer], "relu")
-            
-        
+            grads["dA"+str(layer-1)], grads["dW"+str(layer)],grads["db"+str(layer)] = \
+    self.linear_activation_backward(grads["dA"+str(layer)], caches[layer], "relu")
         
         return grads
     
     def Update_parameters(self,parameters, grads, learning_rate): 
+        '''{
+            layer_n: {
+                w: <matrix of weights from layer n-1 to n>
+                row - current layer number of neuron, columns - previous
+                b: <vector of bias from layer n-1 to n>
+        }'''
+        layers = len(parameters)
+        
+        for layer in range(1, layers + 1): 
+            # update w
+            parameters["layer_"+str(layer)]['w'] = parameters["layer_"+str(layer)]['w']- learning_rate*grads['dW'+str(layer)]
+            #update b
+            parameters["layer_"+str(layer)]['b'] = parameters["layer_"+str(layer)]['b']- learning_rate*grads['db'+str(layer)]
         
         return parameters
     
