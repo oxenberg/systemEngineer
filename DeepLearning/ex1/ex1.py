@@ -57,22 +57,70 @@ class NeuralNetwork():
     
     #### Backward: 
     def Linear_backward(self,dZ, cache): 
-        return
+        #TODO: make sure shapes align
+    
+        dW = np.dot(dZ, np.transpose(cache["A_prev"]))
+        db = dZ
+        dA_prev = np.dot(dZ, np.transpose(cache['W']))  
+        
+        return dA_prev, dW, db
     
     def linear_activation_backward(self,dA, cache, activation): 
-        return
+        '''
+            activation is the activation function in the current layer.
+            chache: will be a list of tuples - each tuple will have the activation cache as the firse element,
+            and the linear cache as the second element
+        '''
+        linear_cache = cache['linear_cache']
+        if activation == 'softmax':     
+            dZ = self.softmax_backward(dA, cache['activation_cache'])
+            dA_prev, dW, db = Linear_backward(dZ, linear_cache)            
+        else: 
+            dZ = self.relu_backward(dA, cache['activation_cache'])
+            dA_prev, dW, db = Linear_backward(dZ, linear_cache)
+        
+        
+        return dA_prev, dW, db 
     
     def relu_backward (self,dA, activation_cache): 
-        return
+        Z = activation_cache['Z']
+        A, Z = self.relu(Z)        
+        dZ = dA * np.int64(A>0)  
+
+        return dZ
     
     
     def softmax_backward (self,dA, activation_cache): 
-        return
+        dZ = dA 
+        return dZ
     
     def L_model_backward(self,AL, Y, caches): 
-        return
+        '''
+        chaches: will be a list of dictionaries - each dictionart will have the activation cache 
+        and the linear cache of each layer
+        
+        '''
+        grads = {}
+        layers = len(caches)
+        
+        dA = AL-Y
+        grads["dA"+str(layers)]
+ 
+        ## The last layer: 
+        grads["dA"+str(layers-1)], grads["dW"+str(layers)],grads["db"+str(layers)]) = 
+    linear_activation_backward(dA, chach[layers], "softmax")
+        
+        # Rest of the layers: 
+        for layer in range(layers-1, 0, -1): 
+            grads["dA"+str(layer-1)], grads["dW"+str(layer)],grads["db"+str(layer)]) = 
+    linear_activation_backward(grads["dA"+str(layer), chach[layer], "relu")
+            
+        
+        
+        return grads
     
     def Update_parameters(self,parameters, grads, learning_rate): 
-        return
+        
+        return parameters
     
     
