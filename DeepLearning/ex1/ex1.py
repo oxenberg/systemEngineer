@@ -113,7 +113,7 @@ class NeuralNetwork():
             current_layer_dim = layer_dims[index]
             #: create weight matrix with current layer number of neuron, columns - previous
             w_matrix = np.random.rand(current_layer_dim, prev_layer_dim)
-            w_matrix = w_matrix*np.sqrt(2/prev_layer_dim)
+            w_matrix = w_matrix*np.sqrt(1/prev_layer_dim)
             # w_matrix = w_matrix*0.01
             bias_vector = np.zeros(current_layer_dim).reshape(-1,1)
             network_weights[layer_name] = {"w": w_matrix, "b": bias_vector}
@@ -148,16 +148,18 @@ class NeuralNetwork():
 
 
         '''
-        A = []
-        softmax_sum = 0
-        # exponent for each output z
-        for z_i in Z:
-            a = np.exp(z_i)
-            A.append(a)
-            softmax_sum += a
-        # transform to array and split by sum of exponents
-        A = np.array(A)
-        A = A/softmax_sum
+        e_x = np.exp(Z - np.max(Z))
+        A = e_x / e_x.sum(axis=0)
+        # A = []
+        # softmax_sum = 0
+        # # exponent for each output z
+        # for z_i in Z:
+        #     a = np.exp(z_i)
+        #     A.append(a)
+        #     softmax_sum += a
+        # # transform to array and split by sum of exponents
+        # A = np.array(A)
+        # A = A/softmax_sum
 
         activation_cache = Z
 
@@ -344,7 +346,7 @@ class NeuralNetwork():
         }'''
         layers = len(parameters)
 
-        for layer in range(1, layers + 1):
+        for layer in range(1, layers+1):
             # update w
             parameters["layer_"+str(layer)]['w'] = parameters["layer_" +
                                                               str(layer)]['w'] - learning_rate*grads['dW'+str(layer)]

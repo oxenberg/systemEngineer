@@ -19,8 +19,8 @@ def load_data():
     num_classes = 10
     y_train = keras.utils.to_categorical(y_train, num_classes)
     y_test = keras.utils.to_categorical(y_test, num_classes)
-    y_train = y_train.reshape(num_classes, y_train.shape[0])
-    y_test = y_test.reshape(num_classes, y_test.shape[0])    
+    y_train = y_train.T 
+    y_test = y_test.T
     
     image_vector_size = 28*28
     x_train = x_train.reshape(image_vector_size, x_train.shape[0])

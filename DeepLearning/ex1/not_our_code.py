@@ -41,16 +41,19 @@ def softmax(Z):
 
 
     '''
-    A = []
-    softmax_sum = 0
-    # exponent for each output z
-    for z_i in Z:
-        a = np.exp(z_i)
-        A.append(a)
-        softmax_sum += a
-    # transform to array and split by sum of exponents
-    A = np.array(A)
-    A = A/softmax_sum
+    
+    e_x = np.exp(Z - np.max(Z))
+    A = e_x / e_x.sum(axis=0)
+    # A = []
+    # softmax_sum = 0
+    # # exponent for each output z
+    # for z_i in Z:
+    #     a = np.exp(z_i)
+    #     A.append(a)
+    #     softmax_sum += a
+    # # transform to array and split by sum of exponents
+    # A = np.array(A)
+    # A = A/softmax_sum
 
     activation_cache = Z
 
@@ -110,7 +113,7 @@ def L_model_forward(X, parameters, hidden_layers_activation_fn="relu"):
 def compute_cost(AL, y):
     m = y.shape[1]              
     cost = - (1 / m) * np.sum(
-        np.multiply(y, np.log(AL)) + np.multiply(1 - y, np.log(1 - AL)))
+        np.multiply(y, np.log(AL)))
 
     return cost
 
@@ -155,7 +158,7 @@ def L_model_backward(AL, y, caches, hidden_layers_activation_fn="relu"):
     L = len(caches)
     grads = {}
 
-    dAL = np.divide(AL - y, np.multiply(AL, 1 - AL))
+    dAL = AL - y
 
     grads["dA" + str(L - 1)], grads["dW" + str(L)], grads[
         "db" + str(L)] = linear_activation_backward(
@@ -211,7 +214,7 @@ def L_layer_model(
         
         # append each 100th cost to the cost list
         if (i + 1) % 100 == 0 and print_cost:
-            print(f"The cost after {i + 1} iterations is: {cost:.4f}")
+            print(f"The cost after {i + 1} iterations is: {cost:.6f}")
 
         if i % 100 == 0:
             cost_list.append(cost)
