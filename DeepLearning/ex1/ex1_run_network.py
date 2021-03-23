@@ -27,8 +27,8 @@ def load_data():
     x_test = x_test.reshape(image_vector_size, x_test.shape[0])
     
     ## Normalizing the input
-    x_train = x_train/255.0
-    x_test = x_test/255.0
+    x_train = x_train /255.0
+    x_test = x_test /255.0
     return x_train, x_test, y_train, y_test
 
 
@@ -37,14 +37,16 @@ def main():
     x_train, x_test, y_train, y_test = load_data()
     ## Running without batchnorm
     layers_dim = [x_train.shape[0], 20,7, 5, 10]
+    # layers_dim = [x_train.shape[0], 4,4, 10]
     learning_rate = 0.009
-    num_iterations = 3000
-    batch_size = 600
-    network = NeuralNetwork()
-    parameters, costs = network.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
+    num_iterations = 10
+    batch_size = 48000
+    network = NeuralNetwork(use_batchnorm = False)
+    parameters, costs, val_costs = network.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
     accuracy = network.Predict(x_test, y_test, parameters)
     print(f"Test Accuracy is : {accuracy}")
     plt.plot(np.arange(1, len(costs) +1), costs)
+    plt.plot(np.arange(1, len(val_costs) +1), val_costs)
 
 if __name__ == "__main__":
     # execute only if run as a script

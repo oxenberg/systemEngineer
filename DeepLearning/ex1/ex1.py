@@ -20,7 +20,7 @@ def create_batches(X,Y, batch_size):
     batches_X = []
     batches_y = []
     prev_i = 0
-    for i in np.arange(batch_size,data_size, batch_size): 
+    for i in np.arange(batch_size,data_size+1, batch_size): 
         batch_indexes = indexes[prev_i:i]
         batches_X.append(X[:,batch_indexes])
         batches_y.append(Y[:,batch_indexes])
@@ -32,6 +32,7 @@ def create_batches(X,Y, batch_size):
 class NeuralNetwork():
     def __init__(self, use_batchnorm = False):
         self.use_batchnorm  = use_batchnorm
+        self.epsilon = 0.0001
     
     #### Train and predict
     def L_layer_model(self, X, Y, layers_dims, learning_rate, num_iterations, batch_size):
@@ -39,6 +40,7 @@ class NeuralNetwork():
         X_train, X_val, Y_train, Y_val = X_train.T, X_val.T, Y_train.T, Y_val.T
         parameters = self.initialize_parameters(layers_dims)
         costs = []
+        val_costs = []
         epochs = math.ceil(num_iterations*batch_size / X_train.shape[1])
         num_labels = Y_train.shape[0]
         assert num_labels == layers_dims[-1]
@@ -48,10 +50,11 @@ class NeuralNetwork():
         done = False
         
         # TODO: understand whether it should be epochs or num of iteration and the diff between them. 
+        batches_X, batches_y = create_batches(X_train,Y_train, batch_size)
         
         for i in tqdm(range(epochs)): 
             
-            batches_X, batches_y = create_batches(X_train,Y_train, batch_size)
+         
             for batch_x,batch_y in zip(batches_X, batches_y): 
                 
                 iterations+=1
@@ -66,18 +69,19 @@ class NeuralNetwork():
 
                     val_predicted, val_caches = self.L_model_forward(X_val, parameters, self.use_batchnorm)
                     val_cost = self.compute_cost(val_predicted, Y_val)
+                    val_costs.append(val_cost)
                     print(f"iteration number:{iterations}, train cost: {cost}, validation cost: {val_cost}")
                     # : Stopping criterion
-                    if val_cost>val_prev_cost: 
-                        done = True
-                        break
+                    # if val_cost>val_prev_cost: 
+                    #     done = True
+                    #     break
                     val_prev_cost = val_cost
             
             #: Stopping criterion
             if done:
                  break
-        
-        return parameters, costs
+        #TODO: remove val costs from the return
+        return parameters, costs, val_costs
 
     def Predict(self, X, Y, parameters):
         y_predicted, caches = self.L_model_forward(X, parameters, self.use_batchnorm)
@@ -112,7 +116,7 @@ class NeuralNetwork():
             prev_layer_dim = layer_dims[index-1]
             current_layer_dim = layer_dims[index]
             #: create weight matrix with current layer number of neuron, columns - previous
-            w_matrix = np.random.rand(current_layer_dim, prev_layer_dim)
+            w_matrix = np.random.uniform(-1,1,[current_layer_dim, prev_layer_dim])
             w_matrix = w_matrix*np.sqrt(1/prev_layer_dim)
             # w_matrix = w_matrix*0.01
             bias_vector = np.zeros(current_layer_dim).reshape(-1,1)
@@ -149,6 +153,7 @@ class NeuralNetwork():
 
         '''
         e_x = np.exp(Z - np.max(Z))
+        # e_x = np.exp(Z)
         A = e_x / e_x.sum(axis=0)
         # A = []
         # softmax_sum = 0
@@ -224,8 +229,7 @@ class NeuralNetwork():
 
         #:TODO check if this is batch norm
         if use_batchnorm:
-            col_sums = X.sum(axis=0)
-            X = X / col_sums
+            A = self.apply_batchnorm(X)
 
         A = X.copy()
         parameters_values_list = list(parameters.values())
@@ -236,8 +240,7 @@ class NeuralNetwork():
                 A, layer["w"], layer["b"], "relu")
 
             if use_batchnorm:
-                col_sums = A.sum(axis=0)
-                A = A / col_sums
+                A = self.apply_batchnorm(A)
 
             caches.append(cache)
             
@@ -256,23 +259,29 @@ class NeuralNetwork():
         :return: cost the cross-entropy cost
 
         '''
-        number_of_classes = AL.shape[0]
+        # number_of_classes = AL.shape[0]
         number_of_examples = AL.shape[1]
         #: TODO check dim of AL
-
+        cost = - (1 / number_of_examples) * np.sum(
+        np.multiply(Y, np.log(AL)))
         # calculate by the cross entropy formula
-        cost = 0
-        for exemple in range(number_of_examples):
-            for class_ in range(number_of_classes):
-                y_tag = AL[class_][exemple]
-                y_true = Y[class_][exemple]
-                cost += y_true*np.log(y_tag)
-        cost = -cost/number_of_examples
+        # cost = 0
+        # for exemple in range(number_of_examples):
+        #     for class_ in range(number_of_classes):
+        #         y_tag = AL[class_][exemple]
+        #         y_true = Y[class_][exemple]
+        #         cost += y_true*np.log(y_tag)
+        # cost = -cost/number_of_examples
 
         return cost
 
     def apply_batchnorm(self, A):
-        return
+        mu = np.mean(A, axis = 1).reshape(-1,1)
+        var = np.std(A, axis = 1).reshape(-1,1)
+
+        NA = A-mu/np.sqrt(var+self.epsilon)
+        
+        return NA
 
     # Backward:
     def Linear_backward(self, dZ, cache):
@@ -282,6 +291,7 @@ class NeuralNetwork():
         db = (1/num_examples)*np.sum(dZ, axis = 1, keepdims = True)
         ## TODO: we changed to transpose. make sure it's ok
         dA_prev = np.dot(cache['W'].T, dZ)
+        
         assert dA_prev.shape == cache['A'].shape
         assert dW.shape == cache['W'].shape
         assert db.shape == cache['b'].shape
@@ -311,7 +321,9 @@ class NeuralNetwork():
         return dZ
 
     def softmax_backward(self, dA, activation_cache):
-        dZ = dA
+        Z = activation_cache
+        A, Z = self.softmax(Z)
+        dZ = A - dA
         return dZ
 
     def L_model_backward(self, AL, Y, caches):
@@ -323,7 +335,7 @@ class NeuralNetwork():
         grads = {}
         layers = len(caches)
 
-        dA = AL-Y
+        dA = Y
 
         # The last layer:
         grads["dA"+str(layers-1)], grads["dW"+str(layers)], grads["db"+str(layers)] = \
