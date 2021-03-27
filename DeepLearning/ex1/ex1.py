@@ -12,6 +12,7 @@ import numpy as np
 import math
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
+import tensorflow as tf
 
 def create_batches(X,Y, batch_size): 
     data_size = X.shape[1]
@@ -32,16 +33,16 @@ def create_batches(X,Y, batch_size):
 class NeuralNetwork():
     def __init__(self, use_batchnorm = False):
         self.use_batchnorm  = use_batchnorm
-        self.epsilon = 0.0001
+        self.epsilon = 0.00001
     
     #### Train and predict
     def L_layer_model(self, X, Y, layers_dims, learning_rate, num_iterations, batch_size):
-        X_train, X_val, Y_train, Y_val = train_test_split(X.T, Y.T, test_size = 0.2)
+        X_train, X_val, Y_train, Y_val = train_test_split(X.T, Y.T, test_size = 0.2, random_state = 1)
         X_train, X_val, Y_train, Y_val = X_train.T, X_val.T, Y_train.T, Y_val.T
         parameters = self.initialize_parameters(layers_dims)
         costs = []
         val_costs = []
-        epochs = math.ceil(num_iterations*batch_size / X_train.shape[1])
+        epochs = 1500
         num_labels = Y_train.shape[0]
         assert num_labels == layers_dims[-1]
         
@@ -53,8 +54,6 @@ class NeuralNetwork():
         batches_X, batches_y = create_batches(X_train,Y_train, batch_size)
         
         for i in tqdm(range(epochs)): 
-            
-         
             for batch_x,batch_y in zip(batches_X, batches_y): 
                 
                 iterations+=1
@@ -70,11 +69,13 @@ class NeuralNetwork():
                     val_predicted, val_caches = self.L_model_forward(X_val, parameters, self.use_batchnorm)
                     val_cost = self.compute_cost(val_predicted, Y_val)
                     val_costs.append(val_cost)
+                    
+                    print(f"accuracy: {self.Predict(X_val, Y_val, parameters)}")
                     print(f"iteration number:{iterations}, train cost: {cost}, validation cost: {val_cost}")
                     # : Stopping criterion
-                    # if val_cost>val_prev_cost: 
-                    #     done = True
-                    #     break
+                    if val_cost>val_prev_cost: 
+                        done = True
+                        break
                     val_prev_cost = val_cost
             
             #: Stopping criterion
@@ -108,6 +109,7 @@ class NeuralNetwork():
         :return: network_weights: dictionary like in description that represent the network layers
 
         '''
+        np.random.seed(3)
 
         network_weights = {}
         for index in range(1, len(layer_dims)):
@@ -115,11 +117,14 @@ class NeuralNetwork():
 
             prev_layer_dim = layer_dims[index-1]
             current_layer_dim = layer_dims[index]
+            # initializer = tf.keras.initializers.GlorotUniform()
+
             #: create weight matrix with current layer number of neuron, columns - previous
-            w_matrix = np.random.uniform(-1,1,[current_layer_dim, prev_layer_dim])
+            w_matrix = np.random.randn(current_layer_dim, prev_layer_dim)
+            # w_matrix = np.array(initializer(shape = (current_layer_dim, prev_layer_dim)))
             w_matrix = w_matrix*np.sqrt(1/prev_layer_dim)
-            # w_matrix = w_matrix*0.01
-            bias_vector = np.zeros(current_layer_dim).reshape(-1,1)
+
+            bias_vector = np.zeros((current_layer_dim,1))
             network_weights[layer_name] = {"w": w_matrix, "b": bias_vector}
 
         return network_weights
@@ -153,19 +158,8 @@ class NeuralNetwork():
 
         '''
         e_x = np.exp(Z - np.max(Z))
-        # e_x = np.exp(Z)
         A = e_x / e_x.sum(axis=0)
-        # A = []
-        # softmax_sum = 0
-        # # exponent for each output z
-        # for z_i in Z:
-        #     a = np.exp(z_i)
-        #     A.append(a)
-        #     softmax_sum += a
-        # # transform to array and split by sum of exponents
-        # A = np.array(A)
-        # A = A/softmax_sum
-
+        
         activation_cache = Z
 
         return A, activation_cache
@@ -228,8 +222,8 @@ class NeuralNetwork():
         caches = []
 
         #:TODO check if this is batch norm
-        if use_batchnorm:
-            A = self.apply_batchnorm(X)
+        # if use_batchnorm:
+        #     A = self.apply_batchnorm(X)
 
         A = X.copy()
         parameters_values_list = list(parameters.values())
@@ -259,37 +253,25 @@ class NeuralNetwork():
         :return: cost the cross-entropy cost
 
         '''
-        # number_of_classes = AL.shape[0]
         number_of_examples = AL.shape[1]
-        #: TODO check dim of AL
         cost = - (1 / number_of_examples) * np.sum(
         np.multiply(Y, np.log(AL)))
-        # calculate by the cross entropy formula
-        # cost = 0
-        # for exemple in range(number_of_examples):
-        #     for class_ in range(number_of_classes):
-        #         y_tag = AL[class_][exemple]
-        #         y_true = Y[class_][exemple]
-        #         cost += y_true*np.log(y_tag)
-        # cost = -cost/number_of_examples
-
+        
         return cost
 
     def apply_batchnorm(self, A):
-        mu = np.mean(A, axis = 1).reshape(-1,1)
-        var = np.std(A, axis = 1).reshape(-1,1)
+        mu = np.mean(A, axis = 0)
+        var = np.var(A, axis = 0)
 
-        NA = A-mu/np.sqrt(var+self.epsilon)
-        
+        NA = (A-mu)/np.sqrt(var+self.epsilon)
+
         return NA
 
     # Backward:
     def Linear_backward(self, dZ, cache):
-        # TODO: make sure shapes align
         num_examples = cache['A'].shape[1]
         dW = (1/num_examples)*np.dot(dZ, np.transpose(cache["A"]))
         db = (1/num_examples)*np.sum(dZ, axis = 1, keepdims = True)
-        ## TODO: we changed to transpose. make sure it's ok
         dA_prev = np.dot(cache['W'].T, dZ)
         
         assert dA_prev.shape == cache['A'].shape
@@ -315,15 +297,15 @@ class NeuralNetwork():
 
     def relu_backward(self, dA, activation_cache):
         Z = activation_cache
-        A, Z = self.relu(Z)
-        dZ = dA * np.int64(A > 0)
+
+        dZ = dA.copy()
+        dZ[Z <= 0] = 0
 
         return dZ
 
     def softmax_backward(self, dA, activation_cache):
-        Z = activation_cache
-        A, Z = self.softmax(Z)
-        dZ = A - dA
+
+        dZ = dA
         return dZ
 
     def L_model_backward(self, AL, Y, caches):
@@ -335,7 +317,7 @@ class NeuralNetwork():
         grads = {}
         layers = len(caches)
 
-        dA = Y
+        dA = AL-Y
 
         # The last layer:
         grads["dA"+str(layers-1)], grads["dW"+str(layers)], grads["db"+str(layers)] = \
@@ -346,6 +328,7 @@ class NeuralNetwork():
             grads["dA"+str(layer-1)], grads["dW"+str(layer)], grads["db"+str(layer)] = \
                 self.linear_activation_backward(
                     grads["dA"+str(layer)], caches[layer-1], "relu")
+
 
         return grads
 
