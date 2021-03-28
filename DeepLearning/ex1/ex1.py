@@ -79,7 +79,7 @@ class NeuralNetwork():
                     
                     print(f"iteration number:{iterations}, train cost: {cost}, validation cost: {val_cost}")
                     # : Stopping criterion
-                    if val_cost>val_prev_cost: 
+                    if val_cost>val_prev_cost or iterations>num_iterations: 
                         done = True
                         break
                     val_prev_cost = val_cost
@@ -360,3 +360,56 @@ class NeuralNetwork():
                                                               str(layer)]['b'] - learning_rate*grads['db'+str(layer)]
 
         return parameters
+
+
+
+
+
+class NueralNetworkDropout(NeuralNetwork): 
+    def __init__(self, use_batchnorm = False, dropout_rate = [1, 0.2, 1, 1]):
+        super().__init__(use_batchnorm)
+        self.droupout = dropout_rate 
+        self.predict = False
+        
+    def L_model_forward(self, X, parameters, use_batchnorm):
+        '''
+
+        make forward propagation for epoch
+
+        :param X:the data, numpy array of shape (input size, number of examples)
+        :param parameters: dict, initialized W and b parameters of each layer
+        :param use_batchnorm: a boolean flag used to determine whether to apply batchnorm
+        :return: A the last post-activation value
+        :return: caches
+
+        '''
+        caches = []
+
+        A = X.copy()
+        parameters_values_list = list(parameters.values())
+        
+        for layer, dropout_rate in zip(parameters_values_list[:-1], self.droupout[:-1]):
+            if self.predict: 
+                dropout_mask = dropout_rate
+            else: 
+                dropout_mask = np.random.binomial(1, dropout_rate, size = A.shape)
+            A*=dropout_mask
+            A, cache = self.linear_activation_forward(
+                A, layer["w"], layer["b"], "relu")
+            
+            if use_batchnorm:
+                A = self.apply_batchnorm(A)
+            
+            caches.append(cache)
+        
+        softmax_layer = parameters_values_list[-1]
+        
+        A, cache = self.linear_activation_forward(
+                A, softmax_layer["w"], softmax_layer["b"], "softmax")
+        caches.append(cache)
+        
+        return A, caches
+
+        
+        
+        
