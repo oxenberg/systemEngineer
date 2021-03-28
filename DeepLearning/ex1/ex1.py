@@ -365,10 +365,10 @@ class NeuralNetwork():
 
 
 
-class NueralNetworkDropout(NeuralNetwork): 
-    def __init__(self, use_batchnorm = False, dropout_rate = [1, 0.2, 1, 1]):
+class NeuralNetworkDropout(NeuralNetwork): 
+    def __init__(self, use_batchnorm = False, dropout_rate = [1, 0.1, 1, 1]):
         super().__init__(use_batchnorm)
-        self.droupout = dropout_rate 
+        self.dropout = dropout_rate 
         self.predict = False
         
     def L_model_forward(self, X, parameters, use_batchnorm):
@@ -384,15 +384,18 @@ class NueralNetworkDropout(NeuralNetwork):
 
         '''
         caches = []
+        self.masks = []
 
         A = X.copy()
         parameters_values_list = list(parameters.values())
         
-        for layer, dropout_rate in zip(parameters_values_list[:-1], self.droupout[:-1]):
+        for layer, dropout_rate in zip(parameters_values_list[:-1], self.dropout[:-1]):
             if self.predict: 
-                dropout_mask = dropout_rate
+                dropout_mask = 1 - dropout_rate
             else: 
-                dropout_mask = np.random.binomial(1, dropout_rate, size = A.shape)
+                dropout_mask = np.random.binomial(1, 1-dropout_rate, size = A.shape)
+                self.masks.append(dropout_mask)
+            
             A*=dropout_mask
             A, cache = self.linear_activation_forward(
                 A, layer["w"], layer["b"], "relu")
@@ -403,13 +406,66 @@ class NueralNetworkDropout(NeuralNetwork):
             caches.append(cache)
         
         softmax_layer = parameters_values_list[-1]
-        
+        if self.predict: 
+            dropout_mask = 1 - self.dropout[-1]
+        else: 
+            dropout_mask = np.random.binomial(1,1 - self.dropout[-1] , size = A.shape)
+            self.masks.append(dropout_mask)
+        A*=dropout_mask   
         A, cache = self.linear_activation_forward(
                 A, softmax_layer["w"], softmax_layer["b"], "softmax")
         caches.append(cache)
         
         return A, caches
 
-        
-        
+    def L_model_backward(self, AL, Y, caches):
+        '''
+        chaches: will be a list of dictionaries - each dictionart will have the activation cache 
+        and the linear cache of each layer
+
+        '''
+        grads = {}
+        layers = len(caches)
+
+        dA = AL-Y
+
+        # The last layer:
+        grads["dA"+str(layers-1)], grads["dW"+str(layers)], grads["db"+str(layers)] = \
+            self.linear_activation_backward(dA, caches[layers-1], "softmax")
+
+        # Rest of the layers:
+        for layer in range(layers-1, 0, -1):
+            grads["dA"+str(layer-1)], grads["dW"+str(layer)], grads["db"+str(layer)] = \
+                self.linear_activation_backward(
+                    grads["dA"+str(layer)], caches[layer-1], "relu", self.masks[layer])
+
+
+        return grads
+    
+    def linear_activation_backward(self, dA, cache, activation, dropout_mask = None):
+        '''
+            activation is the activation function in the current layer.
+            chache: will be a list of tuples - each tuple will have the activation cache as the firse element,
+            and the linear cache as the second element
+        '''
+        linear_cache = cache['linear_cache']
+        if activation == 'softmax':
+            dZ = self.softmax_backward(dA, cache['activation_cache'])
+            dA_prev, dW, db = self.Linear_backward(dZ, linear_cache)
+        else:
+            dZ = self.relu_backward(dA, cache['activation_cache'])
+            dZ*= dropout_mask
+            dA_prev, dW, db = self.Linear_backward(dZ, linear_cache)
+
+        return dA_prev, dW, db
+
+    def Predict(self, X, Y, parameters):
+        self.predict = True
+        y_predicted, caches = self.L_model_forward(X, parameters, self.use_batchnorm)
+        y_predicted = np.argmax(y_predicted, axis = 0)
+        Y = np.argmax(Y, axis = 0)
+        matches = np.where(Y==y_predicted)[0]
+        accuracy = len(matches)/len(Y)
+        self.predict = False        
+        return accuracy 
         
