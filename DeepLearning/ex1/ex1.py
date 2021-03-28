@@ -15,6 +15,13 @@ from tqdm import tqdm
 import tensorflow as tf
 
 def create_batches(X,Y, batch_size): 
+    ''' Creates and returns two list of batches, for X and Y. 
+        Input: 
+            X, Y - The data 
+            batch_size - The size of the required batch. 
+        Output: 
+            batches_X, batches_y - a list of batches in the required size. 
+    '''
     data_size = X.shape[1]
     indexes = np.arange(data_size)
     np.random.shuffle(indexes)
