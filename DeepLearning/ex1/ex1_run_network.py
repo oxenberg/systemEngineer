@@ -65,7 +65,7 @@ def main():
     layers_dim = [x_train.shape[0], 20, 7, 5, 10]
     learning_rate = 0.009
     num_iterations = 3000
-    batch_size = 1024
+    batch_size = 512
     network = NeuralNetwork(use_batchnorm = True)
     parameters, costs, val_costs = network.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
     accuracy = network.Predict(x_test, y_test, parameters)

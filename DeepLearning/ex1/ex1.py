@@ -77,7 +77,6 @@ class NeuralNetwork():
                     val_cost = self.compute_cost(val_predicted, Y_val)
                     val_costs.append(val_cost)
                     
-                    print(f"accuracy: {self.Predict(X_val, Y_val, parameters)}")
                     print(f"iteration number:{iterations}, train cost: {cost}, validation cost: {val_cost}")
                     # : Stopping criterion
                     if val_cost>val_prev_cost: 
@@ -89,6 +88,10 @@ class NeuralNetwork():
             if done:
                  break
         #TODO: remove val costs from the return
+        train_accuracy = self.Predict(X_train, Y_train, parameters)
+        print(f"Train Accuracy is : {train_accuracy}")
+        validation_accuracy = self.Predict(X_val, Y_val, parameters)
+        print(f"Validation Accuracy is : {validation_accuracy}")
         return parameters, costs, val_costs
 
     def Predict(self, X, Y, parameters):
