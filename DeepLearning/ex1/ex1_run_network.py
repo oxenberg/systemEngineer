@@ -84,9 +84,9 @@ def main():
     # plot_costs(costs, val_costs, "With Batch Normalization")
     
     print("Running a network with dropout")
-    num_iterations = 85000
-    batch_size = 900
-    network_dropout = NeuralNetworkDropout(use_batchnorm = True, dropout_rate = [0.05,0,0,0])
+    num_iterations = 11000
+    batch_size = 800
+    network_dropout = NeuralNetworkDropout(use_batchnorm = False, dropout_rate = [0.1, 0, 0, 0])
     parameters, costs, val_costs = network_dropout.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
     accuracy = network_dropout.Predict(x_test, y_test, parameters)
     print(f"Test Accuracy is : {accuracy}")
