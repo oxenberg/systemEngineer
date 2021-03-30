@@ -10,9 +10,11 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
-from ex1 import NeuralNetwork
-from ex1 import NeuralNetworkDropout
 import matplotlib.pyplot as plt
+
+from Ex1.ex1_dropout import run_with_dropout
+from Ex1.ex1_functions import run_NN
+
 
 def one_hot_transform(Y):
     ''' Transforms the data into one hot encoded matrix 
@@ -63,35 +65,31 @@ def plot_costs(train_cost, val_cost, title):
 
 def main(): 
     x_train, x_test, y_train, y_test = load_data()
+
+    params = {
+        "x_train":x_train,
+        "x_test": x_test,
+        "y_train": y_train,
+        "y_test" : y_test,
+        "layers_dim" : [x_train.shape[0], 20, 7, 5, 10],
+        "learning_rate" : 0.009
+    }
+
     ## Running without batchnorm
     print("Running a network without Batch Normalization")
-    layers_dim = [x_train.shape[0], 20, 7, 5, 10]
-    learning_rate = 0.009
-    num_iterations = 14000
-    batch_size = 600
-    # network = NeuralNetwork(use_batchnorm = False)
-    # parameters, costs, val_costs = network.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
-    # accuracy = network.Predict(x_test, y_test, parameters)
-    # print(f"Test Accuracy is : {accuracy}")
-    # plot_costs(costs, val_costs, "Without Batch Normalization")
-    
-    # print("Running a network with Batch Normalization") 
-    # num_iterations = 85000
-    # batch_size = 900
-    # batch_network = NeuralNetwork(use_batchnorm = True)
-    # parameters, costs, val_costs = batch_network.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
-    # accuracy = batch_network.Predict(x_test, y_test, parameters)
-    # print(f"Test Accuracy is : {accuracy}")
-    # plot_costs(costs, val_costs, "With Batch Normalization")
-    
+    params["num_iterations"] = 14000
+    params["batch_size"] = 600
+    run_NN(**params, use_batch_norm=False,title = "Without Batch Normalization")
+
+    print("Running a network with Batch Normalization")
+    params["num_iterations"] = 85000
+    params["batch_size"] = 900
+    run_NN(**params, use_batch_norm=True, title = "With Batch Normalization")
+
     print("Running a network with dropout")
-    num_iterations = 11000
-    batch_size = 800
-    network_dropout = NeuralNetworkDropout(use_batchnorm = False, dropout_rate = [0.1, 0, 0, 0])
-    parameters, costs, val_costs = network_dropout.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
-    accuracy = network_dropout.Predict(x_test, y_test, parameters)
-    print(f"Test Accuracy is : {accuracy}")
-    plot_costs(costs, val_costs, "With Dropout")
+    run_with_dropout(**params,dropout=[0,0.1,0,0])
+    params["num_iterations"] = 11000
+    params["batch_size"] = 800
 
 if __name__ == "__main__":
     # execute only if run as a script

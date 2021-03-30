@@ -7,12 +7,9 @@ Created on Fri Mar 19 11:36:53 2021
 """
 
 
-import pandas as pd
 import numpy as np
-import math
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-import tensorflow as tf
 
 def create_batches(X,Y, batch_size): 
     ''' Creates and returns two list of batches, for X and Y. 
@@ -40,8 +37,7 @@ def create_batches(X,Y, batch_size):
 class NeuralNetwork():
     def __init__(self, use_batchnorm = False):
         self.use_batchnorm  = use_batchnorm
-        self.epsilon = 0.00001
-    
+
     #### Train and predict
     def L_layer_model(self, X, Y, layers_dims, learning_rate, num_iterations, batch_size):
         X_train, X_val, Y_train, Y_val = train_test_split(X.T, Y.T, test_size = 0.2, random_state = 1)
@@ -270,10 +266,12 @@ class NeuralNetwork():
         return cost
 
     def apply_batchnorm(self, A):
+        epsilion = 0.0001
+
         mu = np.mean(A, axis = 0)
         var = np.var(A, axis = 0)
 
-        NA = (A-mu)/np.sqrt(var+self.epsilon)
+        NA = (A-mu)/np.sqrt(var+epsilion)
 
         return NA
 
