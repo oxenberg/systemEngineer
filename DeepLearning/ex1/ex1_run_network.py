@@ -48,16 +48,17 @@ def load_data():
     return x_train, x_test, y_train, y_test
 
 
-def plot_costs(train_cost, val_cost, BatchNorm = "With"): 
+def plot_costs(train_cost, val_cost, BatchNorm = "Without"):
     '''
         Plots ths train and validation costs.
     '''
-    plt.plot(np.arange(1, len(train_cost) +1), train_cost, label = "Train cost")
-    plt.plot(np.arange(1, len(val_cost) +1), val_cost, label = "Val cost")
+    plt.plot(np.arange(1, len(train_cost) +1)*100, train_cost, label = "Train cost")
+    plt.plot(np.arange(1, len(val_cost) +1)*100, val_cost, label = "Val cost")
     plt.legend()
     plt.title(f"{BatchNorm} Batch Normalization")
     plt.xlabel("Iterations")
     plt.ylabel("cost")
+    plt.show()
 
 def main(): 
     x_train, x_test, y_train, y_test = load_data()
@@ -65,8 +66,8 @@ def main():
     layers_dim = [x_train.shape[0], 20, 7, 5, 10]
     learning_rate = 0.009
     num_iterations = 3000
-    batch_size = 512
-    network = NeuralNetwork(use_batchnorm = True)
+    batch_size = 600
+    network = NeuralNetwork(use_batchnorm = False)
     parameters, costs, val_costs = network.L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
     accuracy = network.Predict(x_test, y_test, parameters)
     print(f"Test Accuracy is : {accuracy}")
