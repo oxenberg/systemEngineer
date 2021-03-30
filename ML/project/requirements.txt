@@ -89,7 +89,7 @@ pycparser==2.20
 pydocstyle @ file:///tmp/build/80754af9/pydocstyle_1592848020240/work
 pydot==1.4.1
 pyflakes==2.1.1
-Pygments==2.6.1
+Pygments==2.7.4
 pylint==2.4.4
 PyNaCl @ file:///C:/ci/pynacl_1593121837095/work
 pyOpenSSL==19.1.0
