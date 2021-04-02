@@ -6,9 +6,7 @@ Created on Sat Mar 20 13:07:13 2021
 @author: saharbaribi
 """
 
-import pandas as pd
 import numpy as np
-import tensorflow as tf
 import tensorflow.keras as keras
 import matplotlib.pyplot as plt
 
@@ -78,20 +76,20 @@ def main():
     }
 
     ## Running without batchnorm
-    print("Running a network without Batch Normalization")
-    params["num_iterations"] = 80000
-    params["batch_size"] = 32
-    run_NN(**params, use_batch_norm=False, title="Without Batch Normalization")
+    # print("Running a network without Batch Normalization")
+    # params["num_iterations"] = 80000
+    # params["batch_size"] = 32
+    # run_NN(**params, use_batch_norm=False, title="Without Batch Normalization")
 
     print("Running a network with Batch Normalization")
-    params["num_iterations"] = 150000
+    params["num_iterations"] = 120000
     params["batch_size"] = 16
-    run_NN(**params, use_batch_norm=True, title = "With Batch Normalization",epsilon = 0.018)
+    run_NN(**params, use_batch_norm=True, title = "With Batch Normalization",epsilon = 0.016)
 
-    print("Running a network with dropout")
-    params["num_iterations"] = 40000
-    params["batch_size"] = 32
-    run_with_dropout(**params,dropout=[0,0.1,0,0])
+    # print("Running a network with dropout")
+    # params["num_iterations"] = 40000
+    # params["batch_size"] = 32
+    # run_with_dropout(**params,dropout=[0,0.1,0,0])
 
 
 if __name__ == "__main__":

@@ -49,6 +49,8 @@ def create_batches(X, Y, batch_size):
 
 
 def train_test_split(x, y, test_size=0.2):
+    np.random.seed(1)
+
     size = x.shape[0]
     indexes = np.arange(size)
     np.random.shuffle(indexes)
@@ -114,12 +116,13 @@ def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
 
 
 def Predict(X, Y, parameters):
+    predict = True
     y_predicted, caches = L_model_forward(X, parameters, USE_BATCH_NORM)
     y_predicted = np.argmax(y_predicted, axis=0)
     Y = np.argmax(Y, axis=0)
     matches = np.where(Y == y_predicted)[0]
     accuracy = len(matches) / len(Y)
-
+    predict = False
     return accuracy
 
     # Forward
@@ -269,7 +272,7 @@ def L_model_forward(X, parameters, use_batchnorm):
         A, cache = linear_activation_forward(
             A, layer["w"], layer["b"], "relu")
 
-        if use_batchnorm:
+        if use_batchnorm and not predict:
             A = apply_batchnorm(A)
 
         caches.append(cache)
@@ -402,10 +405,13 @@ def run_NN(x_train, x_test, y_train, y_test, batch_size, num_iterations, learnin
            title,epsilon = 0.02):
     global USE_BATCH_NORM
     global epsilon_val
+    global predict
+    predict = False
     epsilon_val = epsilon
     USE_BATCH_NORM = use_batch_norm
     parameters, costs, val_costs = L_layer_model(x_train, y_train, layers_dim, learning_rate, num_iterations,
                                                  batch_size)
+
     accuracy = Predict(x_test, y_test, parameters)
     print(f"Test Accuracy is : {accuracy}")
     plot_costs(costs, val_costs, title)
