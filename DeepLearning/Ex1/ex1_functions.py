@@ -403,6 +403,9 @@ def Update_parameters(parameters, grads, learning_rate):
 
 def run_NN(x_train, x_test, y_train, y_test, batch_size, num_iterations, learning_rate, layers_dim, use_batch_norm,
            title,epsilon = 0.02):
+     '''
+        This function receives all the required information to run the network, and predict on the test data. 
+    '''
     global USE_BATCH_NORM
     global epsilon_val
     global predict

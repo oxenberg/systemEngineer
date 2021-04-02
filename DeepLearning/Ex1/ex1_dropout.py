@@ -192,6 +192,9 @@ def Update_parameters( parameters, grads, learning_rate):
 
 
 def run_with_dropout(x_train, x_test, y_train, y_test,batch_size,num_iterations,learning_rate,layers_dim,dropout = [0, 0.1, 0, 0]):
+     '''
+        This function receives all the required information to run the network, and predict on the test data. 
+    '''
     global DROPOUT_RATE
     DROPOUT_RATE = dropout
     parameters, costs, val_costs = L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
