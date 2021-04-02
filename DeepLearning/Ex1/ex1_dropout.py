@@ -1,21 +1,23 @@
 import numpy as np
 
-from .ex1_functions import (linear_activation_forward, apply_batchnorm,
-                            L_layer_model, plot_costs, initialize_parameters, create_batches, compute_cost,
-                            softmax_backward, Linear_backward, relu_backward)
-from sklearn.model_selection import train_test_split
+from Ex1.ex1_functions import (linear_activation_forward, apply_batchnorm,
+                               L_layer_model, plot_costs, initialize_parameters, create_batches, compute_cost,
+                               softmax_backward, Linear_backward, relu_backward, train_test_split)
 from tqdm import tqdm
+
 
 MODE = {"predicate": False}
 USE_BATCH_NORM = False
 
 def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
+    epsilon = 0.018
+
     X_train, X_val, Y_train, Y_val = train_test_split(X.T, Y.T, test_size=0.2, random_state=1)
     X_train, X_val, Y_train, Y_val = X_train.T, X_val.T, Y_train.T, Y_val.T
     parameters = initialize_parameters(layers_dims)
     costs = []
     val_costs = []
-    epochs = 1500
+    epochs = 20
     num_labels = Y_train.shape[0]
     assert num_labels == layers_dims[-1]
 
@@ -45,7 +47,7 @@ def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
 
                 print(f"iteration number:{iterations}, train cost: {cost}, validation cost: {val_cost}")
                 # : Stopping criterion
-                if val_cost > val_prev_cost or iterations > num_iterations:
+                if val_cost > (val_prev_cost + epsilon) or iterations > num_iterations:
                     done = True
                     break
                 val_prev_cost = val_cost

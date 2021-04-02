@@ -7,7 +7,6 @@ Created on Fri Mar 19 11:36:53 2021
 """
 
 import numpy as np
-from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -16,13 +15,14 @@ def plot_costs(train_cost, val_cost, title):
     '''
         Plots ths train and validation costs.
     '''
-    plt.plot(np.arange(1, (len(train_cost) +1))*100, train_cost, label = "Train cost")
-    plt.plot(np.arange(1, (len(val_cost) +1))*100, val_cost, label = "Val cost")
+    plt.plot(np.arange(1, (len(train_cost) + 1)) * 100, train_cost, label="Train cost")
+    plt.plot(np.arange(1, (len(val_cost) + 1)) * 100, val_cost, label="Val cost")
     plt.legend()
     plt.title(title)
     plt.xlabel("Iterations")
     plt.ylabel("cost")
     plt.show()
+
 
 def create_batches(X, Y, batch_size):
     ''' Creates and returns two list of batches, for X and Y.
@@ -48,16 +48,26 @@ def create_batches(X, Y, batch_size):
     return batches_X, batches_y
 
 
+def train_test_split(x, y, test_size=0.2):
+    size = x.shape[0]
+    indexes = np.arange(size)
+    np.random.shuffle(indexes)
+    index_split = int(size * test_size)
 
+    train_indexes = indexes[index_split:]
+    test_indexes = indexes[:index_split]
+    X_train, X_val, Y_train, Y_val = x[train_indexes],x[test_indexes],y[train_indexes],y[test_indexes]
+    return X_train, X_val, Y_train, Y_val
 
 #### Train and predict
 def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
-    X_train, X_val, Y_train, Y_val = train_test_split(X.T, Y.T, test_size=0.2, random_state=1)
+
+    X_train, X_val, Y_train, Y_val = train_test_split(X.T, Y.T, test_size=0.2)
     X_train, X_val, Y_train, Y_val = X_train.T, X_val.T, Y_train.T, Y_val.T
     parameters = initialize_parameters(layers_dims)
     costs = []
     val_costs = []
-    epochs = 1500
+    epochs = 50
     num_labels = Y_train.shape[0]
     assert num_labels == layers_dims[-1]
 
@@ -87,7 +97,7 @@ def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
 
                 print(f"iteration number:{iterations}, train cost: {cost}, validation cost: {val_cost}")
                 # : Stopping criterion
-                if val_cost > val_prev_cost or iterations > num_iterations:
+                if val_cost > (val_prev_cost + epsilon_val) or iterations > num_iterations:
                     done = True
                     break
                 val_prev_cost = val_cost
@@ -102,7 +112,8 @@ def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
     print(f"Validation Accuracy is : {validation_accuracy}")
     return parameters, costs, val_costs
 
-def Predict( X, Y, parameters):
+
+def Predict(X, Y, parameters):
     y_predicted, caches = L_model_forward(X, parameters, USE_BATCH_NORM)
     y_predicted = np.argmax(y_predicted, axis=0)
     Y = np.argmax(Y, axis=0)
@@ -113,7 +124,8 @@ def Predict( X, Y, parameters):
 
     # Forward
 
-def initialize_parameters( layer_dims):
+
+def initialize_parameters(layer_dims):
     '''
 
     create dict that represent the network layers
@@ -148,7 +160,8 @@ def initialize_parameters( layer_dims):
 
     return network_weights
 
-def linear_forward( A, W, b):
+
+def linear_forward(A, W, b):
     '''
 
     :param A: activations of prev layer
@@ -165,7 +178,8 @@ def linear_forward( A, W, b):
     linear_cache = {"A": A, "W": W, "b": b}
     return Z, linear_cache
 
-def softmax( Z):
+
+def softmax(Z):
     '''
     softmax function
 
@@ -183,7 +197,8 @@ def softmax( Z):
 
     return A, activation_cache
 
-def relu( Z):
+
+def relu(Z):
     '''
 
     relu function
@@ -199,7 +214,8 @@ def relu( Z):
 
     return A, activation_cache
 
-def linear_activation_forward( A_prev, W, B, activation):
+
+def linear_activation_forward(A_prev, W, B, activation):
     '''
 
     one layer forword propagation
@@ -225,7 +241,8 @@ def linear_activation_forward( A_prev, W, B, activation):
              "activation_cache": activation_cache}
     return A, cache
 
-def L_model_forward( X, parameters, use_batchnorm):
+
+def L_model_forward(X, parameters, use_batchnorm):
     '''
 
     make forward propagation for epoch
@@ -264,7 +281,8 @@ def L_model_forward( X, parameters, use_batchnorm):
 
     return A, caches
 
-def compute_cost( AL, Y):
+
+def compute_cost(AL, Y):
     '''
 
     :param AL: probability vector corresponding to your label predictions, shape (num_of_classes, number of examples)
@@ -278,7 +296,8 @@ def compute_cost( AL, Y):
 
     return cost
 
-def apply_batchnorm( A):
+
+def apply_batchnorm(A):
     epsilion = 0.0001
 
     mu = np.mean(A, axis=0)
@@ -288,8 +307,9 @@ def apply_batchnorm( A):
 
     return NA
 
+
 # Backward:
-def Linear_backward( dZ, cache):
+def Linear_backward(dZ, cache):
     num_examples = cache['A'].shape[1]
     dW = (1 / num_examples) * np.dot(dZ, np.transpose(cache["A"]))
     db = (1 / num_examples) * np.sum(dZ, axis=1, keepdims=True)
@@ -300,7 +320,8 @@ def Linear_backward( dZ, cache):
     assert db.shape == cache['b'].shape
     return dA_prev, dW, db
 
-def linear_activation_backward( dA, cache, activation):
+
+def linear_activation_backward(dA, cache, activation):
     '''
         activation is the activation function in the current layer.
         chache: will be a list of tuples - each tuple will have the activation cache as the firse element,
@@ -316,7 +337,8 @@ def linear_activation_backward( dA, cache, activation):
 
     return dA_prev, dW, db
 
-def relu_backward( dA, activation_cache):
+
+def relu_backward(dA, activation_cache):
     Z = activation_cache
 
     dZ = dA.copy()
@@ -324,12 +346,13 @@ def relu_backward( dA, activation_cache):
 
     return dZ
 
-def softmax_backward( dA, activation_cache):
 
+def softmax_backward(dA, activation_cache):
     dZ = dA
     return dZ
 
-def L_model_backward( AL, Y, caches):
+
+def L_model_backward(AL, Y, caches):
     '''
     chaches: will be a list of dictionaries - each dictionart will have the activation cache
     and the linear cache of each layer
@@ -352,7 +375,8 @@ def L_model_backward( AL, Y, caches):
 
     return grads
 
-def Update_parameters( parameters, grads, learning_rate):
+
+def Update_parameters(parameters, grads, learning_rate):
     '''{
         layer_n: {
             w: <matrix of weights from layer n-1 to n>
@@ -374,10 +398,14 @@ def Update_parameters( parameters, grads, learning_rate):
     return parameters
 
 
-def run_NN(x_train, x_test, y_train, y_test,batch_size,num_iterations,learning_rate,layers_dim,use_batch_norm,title):
+def run_NN(x_train, x_test, y_train, y_test, batch_size, num_iterations, learning_rate, layers_dim, use_batch_norm,
+           title,epsilon = 0.02):
     global USE_BATCH_NORM
+    global epsilon_val
+    epsilon_val = epsilon
     USE_BATCH_NORM = use_batch_norm
-    parameters, costs, val_costs = L_layer_model(x_train, y_train, layers_dim,learning_rate, num_iterations, batch_size)
+    parameters, costs, val_costs = L_layer_model(x_train, y_train, layers_dim, learning_rate, num_iterations,
+                                                 batch_size)
     accuracy = Predict(x_test, y_test, parameters)
     print(f"Test Accuracy is : {accuracy}")
     plot_costs(costs, val_costs, title)
