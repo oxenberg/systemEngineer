@@ -50,18 +50,6 @@ def load_data():
     return x_train, x_test, y_train, y_test
 
 
-def plot_costs(train_cost, val_cost, title):
-    '''
-        Plots ths train and validation costs.
-    '''
-    plt.plot(np.arange(1, (len(train_cost) + 1)) * 100, train_cost, label="Train cost")
-    plt.plot(np.arange(1, (len(val_cost) + 1)) * 100, val_cost, label="Val cost")
-    plt.legend()
-    plt.title(title)
-    plt.xlabel("Iterations")
-    plt.ylabel("cost")
-    plt.show()
-
 
 def main():
     x_train, x_test, y_train, y_test = load_data()
@@ -76,20 +64,20 @@ def main():
     }
 
     ## Running without batchnorm
-    # print("Running a network without Batch Normalization")
-    # params["num_iterations"] = 80000
-    # params["batch_size"] = 32
-    # run_NN(**params, use_batch_norm=False, title="Without Batch Normalization")
+    print("Running a network without Batch Normalization")
+    params["num_iterations"] = 80000
+    params["batch_size"] = 32
+    run_NN(**params, use_batch_norm=False, title="Without Batch Normalization")
 
     print("Running a network with Batch Normalization")
     params["num_iterations"] = 120000
     params["batch_size"] = 16
     run_NN(**params, use_batch_norm=True, title = "With Batch Normalization",epsilon = 0.016)
 
-    # print("Running a network with dropout")
-    # params["num_iterations"] = 40000
-    # params["batch_size"] = 32
-    # run_with_dropout(**params,dropout=[0,0.1,0,0])
+    print("Running a network with dropout")
+    params["num_iterations"] = 40000
+    params["batch_size"] = 32
+    run_with_dropout(**params,dropout=[0,0.1,0,0])
 
 
 if __name__ == "__main__":

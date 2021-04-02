@@ -49,6 +49,9 @@ def create_batches(X, Y, batch_size):
 
 
 def train_test_split(x, y, test_size=0.2):
+    '''
+        Splits the data to train and validation, based on the test size ratio. 
+    '''
     np.random.seed(1)
 
     size = x.shape[0]
@@ -77,7 +80,6 @@ def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
     val_prev_cost = np.inf
     done = False
 
-    # TODO: understand whether it should be epochs or num of iteration and the diff between them.
     batches_X, batches_y = create_batches(X_train, Y_train, batch_size)
 
     for i in tqdm(range(epochs)):
@@ -107,7 +109,7 @@ def L_layer_model(X, Y, layers_dims, learning_rate, num_iterations, batch_size):
         #: Stopping criterion
         if done:
             break
-    # TODO: remove val costs from the return
+
     train_accuracy = Predict(X_train, Y_train, parameters)
     print(f"Train Accuracy is : {train_accuracy}")
     validation_accuracy = Predict(X_val, Y_val, parameters)
@@ -151,11 +153,8 @@ def initialize_parameters(layer_dims):
 
         prev_layer_dim = layer_dims[index - 1]
         current_layer_dim = layer_dims[index]
-        # initializer = tf.keras.initializers.GlorotUniform()
 
-        #: create weight matrix with current layer number of neuron, columns - previous
         w_matrix = np.random.randn(current_layer_dim, prev_layer_dim)
-        # w_matrix = np.array(initializer(shape = (current_layer_dim, prev_layer_dim)))
         w_matrix = w_matrix * np.sqrt(1 / prev_layer_dim)
 
         bias_vector = np.zeros((current_layer_dim, 1))
@@ -260,9 +259,6 @@ def L_model_forward(X, parameters, use_batchnorm):
 
     caches = []
 
-    #:TODO check if this is batch norm
-    # if use_batchnorm:
-    #     A = apply_batchnorm(X)
 
     A = X.copy()
     parameters_values_list = list(parameters.values())
@@ -403,7 +399,7 @@ def Update_parameters(parameters, grads, learning_rate):
 
 def run_NN(x_train, x_test, y_train, y_test, batch_size, num_iterations, learning_rate, layers_dim, use_batch_norm,
            title,epsilon = 0.02):
-     '''
+    '''
         This function receives all the required information to run the network, and predict on the test data. 
     '''
     global USE_BATCH_NORM
