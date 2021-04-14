@@ -13,8 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator as generator
 # import keras
 import os
-import sys 
-
+import sys
 
 FILES_PATH = 'lfw2/lfw2/'
 TRAIN_PATH = 'Train.txt'
