@@ -43,7 +43,12 @@ def create_gen(data, train = True):
     gen2 = datagen.flow_from_dataframe(dataframe = data, target_size=IMAGE_SIZE, x_col='image2',
                                         y_col=y_col,
                                         class_mode=class_mode, subset='training', shuffle=False)
-    return gen1, gen2
+
+    while True:
+        image_1 = gen1.next()
+        image_2 = gen2.next()
+
+        yield [image_1[0], image_2[0]], image_1[1]
 
 
 def create_path(tup):
@@ -108,8 +113,8 @@ def create_model():
 train_data = read_data(TRAIN_PATH)
 test_data = read_data(TEST_PATH, 500)
 
-train_im1, train_im2 = create_gen(train_data)
-test_im1, test_im2 = create_gen(test_data)
+train_gen = create_gen(train_data)
+test_gen = create_gen(test_data)
 
 siamese_network = create_model()
 siamese_network.summary()
@@ -126,8 +131,8 @@ siamese_network.compile(optimizer=Adam(learning_rate=0.0001), loss ='binary_cros
 
 
 # Training the model:
-siamese_network.fit_generator([train_im1, train_im2], epochs = 10)
-siamese_network.evaluate_generator([test_im1, test_im2])
+siamese_network.fit_generator(train_gen, epochs = 10)
+siamese_network.evaluate_generator(test_gen)
 
 
 
