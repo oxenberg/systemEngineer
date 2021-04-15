@@ -1,4 +1,3 @@
-
 Abdullah_Gul	13	14
 Abdullah_Gul	13	16
 Abdullatif_Sener	1	2
