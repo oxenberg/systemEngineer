@@ -24,7 +24,7 @@ FILES_PATH = 'lfw2/lfw2/'
 TRAIN_PATH = 'Train.txt'
 TEST_PATH = 'Test.txt'
 
-IMAGE_SIZE = (250, 250, 3)
+IMAGE_SIZE = (250, 250,3)
 
 
 def create_gen(data, train = True):
@@ -36,12 +36,12 @@ def create_gen(data, train = True):
         class_mode = None
     datagen = generator(rescale=1. / 255)
     gen1 = datagen.flow_from_dataframe(dataframe = data, target_size=IMAGE_SIZE, x_col='image1',
-                                                    y_col=y_col,
+                                                    y_col=y_col,color_mode="rgb",
                                                     class_mode=class_mode, subset='training',shuffle=False)
 
 
     gen2 = datagen.flow_from_dataframe(dataframe = data, target_size=IMAGE_SIZE, x_col='image2',
-                                        y_col=y_col,
+                                        y_col=y_col,color_mode="rgb",
                                         class_mode=class_mode, subset='training', shuffle=False)
 
     while True:
