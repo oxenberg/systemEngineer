@@ -110,35 +110,40 @@ def create_model():
     return network
 
 # # Data Exploration
-train_data = read_data(TRAIN_PATH)
-test_data = read_data(TEST_PATH, 500)
-
-train_gen = create_gen(train_data)
-test_gen = create_gen(test_data)
-
-siamese_network = create_model()
-siamese_network.summary()
-siamese_network.compile(optimizer=Adam(learning_rate=0.0001), loss ='binary_crossentropy')
-
-# def n_way_one_shot(n, data):
-#     sample_false = data[data['label'==0]]['image2'].sample(n=n-1)
-#     sample_true = data[data['label'==0]].sample(n=1)
-#     image_to_compare = sample_true['image1']
-#     samples = sample_false.append(sample_true['image2'])
-#     for image in samples:
-#         pair = (image_to_compare, image)
-#     return None
-
-
-# Training the model:
-siamese_network.fit_generator(train_gen, epochs = 10)
-siamese_network.evaluate_generator(test_gen)
-
-
+# train_data = read_data(TRAIN_PATH)
+# test_data = read_data(TEST_PATH, 500)
+#
+# train_gen = create_gen(train_data)
+# test_gen = create_gen(test_data)
+#
+# siamese_network = create_model()
+# siamese_network.summary()
+# siamese_network.compile(optimizer=Adam(learning_rate=0.0001), loss ='binary_crossentropy')
+#
+# # def n_way_one_shot(n, data):
+# #     sample_false = data[data['label'==0]]['image2'].sample(n=n-1)
+# #     sample_true = data[data['label'==0]].sample(n=1)
+# #     image_to_compare = sample_true['image1']
+# #     samples = sample_false.append(sample_true['image2'])
+# #     for image in samples:
+# #         pair = (image_to_compare, image)
+# #     return None
+#
+#
+# # Training the model:
+# siamese_network.fit_generator(train_gen, epochs = 10)
+# siamese_network.evaluate_generator(test_gen)
 
 
 
+def read_images():
+    for name in os.listdir(FILES_PATH):
+        path = os.path.join(FILES_PATH, name)
+        for filename in os.listdir(path):
+            file_path = os.path.join(path, filename)
+            image = cv2.imread(file_path)
 
+read_images()
 
 
 
