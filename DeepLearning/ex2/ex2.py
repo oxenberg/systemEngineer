@@ -52,7 +52,6 @@ def create_gen(data, train=True):
         image_2 = gen2.next()
 
         yield [image_1[0], image_2[0]], image_1[1]
-    return [datagen1, datagen2]
 
 
 def create_path(tup):
@@ -66,16 +65,16 @@ def create_path(tup):
 
 def read_data(path, n=1100):
     count = 0
-    data = pd.DataFrame(columns=['image1', 'image2', 'label'])
+    data = pd.DataFrame(columns=['image1', 'image2', 'label', 'name1', 'name2'])
     with open(path, 'r') as f:
         for line in f:
             line = tuple(line.split('\t'))
             if count < n:
                 name, image1, image2 = line
-                data.loc[count] = [create_path((name, image1)), create_path((name, image2)), '1']
+                data.loc[count] = [create_path((name, image1)), create_path((name, image2)), '1', name, name]
             else:
                 name1, image1, name2, image2 = line
-                data.loc[count] = [create_path((name1, image1)), create_path((name2, image2)), '0']
+                data.loc[count] = [create_path((name1, image1)), create_path((name2, image2)), '0', name1, name2]
             count += 1
     # shuffle the data
     data = data.sample(frac=1).reset_index(drop=True)
@@ -126,22 +125,56 @@ siamese_network = create_model()
 siamese_network.summary()
 siamese_network.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy')
 
-# def n_way_one_shot(n, data):
-#     sample_false = data[data['label'==0]]['image2'].sample(n=n-1)
-#     sample_true = data[data['label'==0]].sample(n=1)
-#     image_to_compare = sample_true['image1']
-#     samples = sample_false.append(sample_true['image2'])
-#     for image in samples:
-#         pair = (image_to_compare, image)
-#     return None
+def n_way_one_shot(n, data, model):
+    correct_pairs = data[data['label'==1]]
+    predictions = list()
+    non_pairs = data[data['label'==0]]
+    images = non_pairs['image1'].append(non_pairs['image2'])
+    names = non_pairs['name1'].append(non_pairs['name2'])
+    non_pairs = pd.DataFrame([images, names], columns=['image', 'name'])
+
+    for i, row in correct_pairs.itterows():
+        n_way_samples = row.iloc[:, :-2]
+        image_to_compare = row['image1']
+        name_true = row['name1']
+
+        #select images that are not the same
+        sample_false = select_pairs_to_compare(n, non_pairs, name_true)
+
+        for sample in sample_false:
+            n_way_samples.append([image_to_compare, sample, '0'])
+
+        n_way_gen = create_gen(n_way_samples, False)
+        predictions.append(test_n_way(model, n_way_gen))
+
+    accuracy = sum(predictions)/len(predictions)
+    return accuracy
+
+def test_n_way(model, n_way_gen):
+    #TODO: check if should be predict proba
+    probabilities = model.predict(n_way_gen)
+    # In our generator the correct pair is in the first row every time,
+    # so we would expect it to receive the max probability
+    if np.argmax(probabilities) == 0:
+        return 1
+    else:
+        return 0
+
+
+
+def select_pairs_to_compare(n, images, name_to_compare):
+    sample_false = images[~images['name'] == name_to_compare]['image'].sample(n=n-1)
+    return sample_false
+
+
 
 
 # Training the model:
 STEP_SIZE_TRAIN=TRAIN_SIZE//BATCH_SIZE
 
-siamese_network.fit_generator(generator=train_gen,
+siamese_network.fit(train_gen,
                     steps_per_epoch=STEP_SIZE_TRAIN,
-                    epochs=5,shuffle=False)
+                    epochs=1,shuffle=False)
 
 
 siamese_network.save_weights('.my_checkpoint')
