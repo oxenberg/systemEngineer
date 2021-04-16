@@ -73,7 +73,8 @@ def read_data(path, n=1100):
                 name1, image1, name2, image2 = line
                 data.loc[count] = [create_path((name1, image1)), create_path((name2, image2)), '0']
             count += 1
-
+    # shuffle the data
+    data = data.sample(frac=1).reset_index(drop=True)
     return data
 
 
