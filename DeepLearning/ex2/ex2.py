@@ -17,6 +17,8 @@ from tensorflow.keras.layers import Input, Conv2D, Dense, MaxPooling2D, Flatten,
 import os
 import sys
 from keras.optimizers import Adam
+from tensorflow.keras.regularizers import l2, l1
+from keras import backend as K
 
 FILES_PATH = 'lfw2/lfw2/'
 TRAIN_PATH = 'Train.txt'
@@ -101,17 +103,19 @@ def create_model():
     model = Sequential()
     model.add(Conv2D(64, (10, 10), activation='relu', input_shape=IMAGE_SIZE+(3,)))
     model.add(MaxPooling2D())
-    model.add(Conv2D(128, (7, 7), activation='relu'))
+    model.add(Conv2D(128, (7, 7), activation='relu', kernel_regularizer=l2(2e-4)))
     model.add(MaxPooling2D())
-    model.add(Conv2D(128, (4, 4), activation='relu'))
+    model.add(Conv2D(128, (4, 4), activation='relu', kernel_regularizer=l2(2e-4)))
     model.add(MaxPooling2D())
-    model.add(Conv2D(256, (4, 4), activation='relu'))
+    model.add(Conv2D(256, (4, 4), activation='relu', kernel_regularizer=l2(2e-4)))
     model.add(Flatten())
     model.add(Dense(4096, activation='sigmoid'))
 
     encoded1 = model(input1)
     encoded2 = model(input2)
 
+#     distance_layer = Lambda(lambda tensors:K.abs(tensors[0] - tensors[1]))
+#     distance = distance_layer([encoded1,encoded2])
     distance_layer = Lambda(calculate_distance)
     distance = distance_layer([encoded1, encoded2])
 
@@ -165,7 +169,7 @@ def select_pairs_to_compare(n, images, name_to_compare):
     sample_false = images[images['name'] != name_to_compare]['image'].sample(n=n - 1)
     return sample_false
 
-def read_images():
+# def read_images():
 #     max_files = 0
 #     folders_with_1 = 0
 #     print(f"files in dir:{len(glob.glob(os.path.join(FILES_PATH, '*')))}")
@@ -195,23 +199,24 @@ test_gen = create_gen(test_data, datagen)
 
 siamese_network = create_model()
 siamese_network.summary()
-siamese_network.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy')
-
+siamese_network.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy', metrics=[tf.keras.metrics.Accuracy()])
 
 # Training the model:
 STEP_SIZE_TRAIN=TRAIN_SIZE//BATCH_SIZE
 
 siamese_network.fit(train_gen,
                     steps_per_epoch=STEP_SIZE_TRAIN,
-                    epochs=5,shuffle=False)
+                    epochs=30,shuffle=False)
 
 
 # siamese_network.save_weights('.my_checkpoint')
 
 
-acc = n_way_one_shot(5, train_data, siamese_network, datagen)
+acc = n_way_one_shot(3, train_data, siamese_network, datagen)
+
+test_acc = n_way_one_shot(3, test_data, siamese_network, datagen)
+
 print(f"train accuracy: {acc}")
-test_acc = n_way_one_shot(5, test_data, siamese_network, datagen)
 print(f"test accuracy: {acc}")
 
 #
