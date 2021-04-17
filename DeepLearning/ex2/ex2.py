@@ -8,15 +8,12 @@ Created on Fri Apr  9 17:31:28 2021
 
 import numpy as np
 import pandas as pd
-import cv2
-import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator as generator
-import keras
 from tensorflow.python.keras.models import Sequential, Model
 from tensorflow.keras.layers import Input, Conv2D, Dense, MaxPooling2D, Flatten, Lambda
 import os
-import sys
-from keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam
+import tensorflow as tf
 
 FILES_PATH = 'lfw2/lfw2/'
 TRAIN_PATH = 'Train.txt'
@@ -87,19 +84,20 @@ def calculate_distance(tensors):
 
 ## Creating the model:
 def create_model():
+    # with tf.device('/CPU:0'):
     input1 = Input(IMAGE_SIZE +(3,))
     input2 = Input(IMAGE_SIZE+(3,))
 
     model = Sequential()
     model.add(Conv2D(64, (10, 10), activation='relu', input_shape=IMAGE_SIZE+(3,)))
     model.add(MaxPooling2D())
-    model.add(Conv2D(128, (7, 7), activation='relu'))
+    model.add(Conv2D(16, (7, 7), activation='relu'))
     model.add(MaxPooling2D())
-    model.add(Conv2D(128, (4, 4), activation='relu'))
+    model.add(Conv2D(16, (4, 4), activation='relu'))
     model.add(MaxPooling2D())
-    model.add(Conv2D(256, (4, 4), activation='relu'))
+    model.add(Conv2D(16, (4, 4), activation='relu'))
     model.add(Flatten())
-    model.add(Dense(4096, activation='sigmoid'))
+    model.add(Dense(16, activation='sigmoid'))
 
     encoded1 = model(input1)
     encoded2 = model(input2)
