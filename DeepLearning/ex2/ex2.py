@@ -13,7 +13,7 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.image import ImageDataGenerator as generator
 import keras
 from tensorflow.python.keras.models import Sequential, Model
-from tensorflow.keras.layers import Input, Conv2D, Dense, MaxPooling2D, Flatten, Lambda
+from tensorflow.keras.layers import Input, Conv2D, Dense, MaxPooling2D, Flatten, Lambda, BatchNormalization, Dropout
 import os
 import sys
 from keras.optimizers import Adam
@@ -22,6 +22,7 @@ from keras import backend as K
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.initializers import RandomNormal
+import matplotlib.pyplot as plt
 
 FILES_PATH = 'lfw2/lfw2/'
 TRAIN_PATH = 'Train.txt'
@@ -29,7 +30,7 @@ TEST_PATH = 'Test.txt'
 
 IMAGE_SIZE = (105, 105)
 TRAIN_SIZE = 2200
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 VAL_SPLIT = 0.2
 
 STEP_SIZE_TRAIN=(TRAIN_SIZE*(1-VAL_SPLIT))//BATCH_SIZE
@@ -39,6 +40,7 @@ EPOCHS_TO_DECAY = 2
 weight_initialize = RandomNormal(mean=0.0, stddev=0.01, seed=None)
 dense_weight_initialize = RandomNormal(mean=0.0, stddev=0.02, seed=None)
 bias_initialize = RandomNormal(mean=0.5, stddev=0.01, seed=None)
+
 
 def create_gen(data, datagen, train=True, val=False):
     if train:
@@ -70,14 +72,6 @@ def create_gen(data, datagen, train=True, val=False):
 
         yield [image_1[0], image_2[0]], image_1[1]
 
-def create_path(tup):
-    name, num = tup
-    padding = 4
-    num = f'%0{padding}d' % int(num)
-    file_name = name + '_' + num + '.jpg'
-    path = os.path.join(FILES_PATH, name, file_name)
-    return path
-
 
 def create_path(tup):
     name, num = tup
@@ -104,6 +98,7 @@ def read_data(path, n=1100):
     data = data.sample(frac=1).reset_index(drop=True)
     return data
 
+
 def calculate_distance(tensors):
     return abs(tensors[0] - tensors[1])
 
@@ -114,20 +109,23 @@ def create_model():
 
     model = Sequential()
     model.add(Conv2D(64, (10, 10), activation='relu', input_shape=IMAGE_SIZE+(3,), kernel_regularizer=l2(2e-4),kernel_initializer = weight_initialize))
+    model.add(BatchNormalization())
+    model.add(Dropout(0.1))
     model.add(MaxPooling2D())
     model.add(Conv2D(128, (7, 7), activation='relu', kernel_regularizer=l2(2e-4), kernel_initializer = weight_initialize, bias_initializer=bias_initialize))
+    model.add(BatchNormalization())
     model.add(MaxPooling2D())
-    model.add(Conv2D(128, (4, 4), activation='relu', kernel_regularizer=l2(2e-4), kernel_initializer = weight_initialize, bias_initializer=bias_initialize))
+    model.add(Conv2D(128, (4, 4), activation='relu', kernel_regularizer=l2(2e-4),kernel_initializer = weight_initialize, bias_initializer=bias_initialize))
+    model.add(BatchNormalization())
     model.add(MaxPooling2D())
-    model.add(Conv2D(256, (4, 4), activation='relu', kernel_regularizer=l2(2e-4), kernel_initializer = weight_initialize, bias_initializer=bias_initialize))
+    model.add(Conv2D(256, (4, 4), activation='relu', kernel_regularizer=l2(2e-4),kernel_initializer = weight_initialize, bias_initializer=bias_initialize))
+    model.add(BatchNormalization())
     model.add(Flatten())
-    model.add(Dense(4096, activation='sigmoid', kernel_regularizer=l2(2e-4), kernel_initializer = dense_weight_initialize, bias_initializer=bias_initialize))
+    model.add(Dense(4096, activation='sigmoid', kernel_regularizer=l2(2e-4),kernel_initializer = dense_weight_initialize, bias_initializer=bias_initialize))
 
     encoded1 = model(input1)
     encoded2 = model(input2)
 
-#     distance_layer = Lambda(lambda tensors:K.abs(tensors[0] - tensors[1]))
-#     distance = distance_layer([encoded1,encoded2])
     distance_layer = Lambda(calculate_distance)
     distance = distance_layer([encoded1, encoded2])
 
@@ -167,6 +165,7 @@ def n_way_one_shot(n, data, model, datagen):
 
 
 def test_n_way(model, n_way_gen, n):
+    #TODO: check if should be predict proba
     probabilities = model.predict(n_way_gen, steps = n)
     # In our generator the correct pair is in the first row every time,
     # so we would expect it to receive the max probability
@@ -180,29 +179,8 @@ def select_pairs_to_compare(n, images, name_to_compare):
     sample_false = images[images['name'] != name_to_compare]['image'].sample(n=n-1)
     return sample_false
 
-# def read_images():
-#     max_files = 0
-#     folders_with_1 = 0
-#     print(f"files in dir:{len(glob.glob(os.path.join(FILES_PATH, '*')))}")
-#     for name in glob.glob(os.path.join(FILES_PATH, '*')):
-#         # path = os.path.join(FILES_PATH, name)
-#         if len(os.listdir(name))>max_files:
-#             max_files = len(os.listdir(name))
-#         if len(os.listdir(name))==1:
-#             folders_with_1+=1
-#         for filename in os.listdir(name):
-#             file_path = os.path.join(name, filename)
-#             image = cv2.imread(file_path)
-#     print(f"number of folders with one photo: {folders_with_1}")
-#     print(f"maximum photos in file : {max_files}")
-
-
-
-
 # Data Exploration
-# read_images()
 datagen = generator(rescale=1. / 255, validation_split = VAL_SPLIT)
-# datagen = generator(rescale=1. / 255)
 test_datagen = generator(rescale=1. / 255)
 train_data = read_data(TRAIN_PATH)
 test_data = read_data(TEST_PATH, 500)
@@ -223,17 +201,25 @@ lr_schedule = ExponentialDecay(
     decay_rate=0.99,
     staircase=True)
 siamese_network.compile(optimizer=Adam(learning_rate=lr_schedule), loss='binary_crossentropy', metrics=['binary_accuracy'])
+
+
 # Training the model:
-siamese_network.fit(train_gen,
+history = siamese_network.fit(train_gen,
                     steps_per_epoch=STEP_SIZE_TRAIN,
-                    epochs=30,shuffle=False,
+                    epochs=25,shuffle=False,
                     validation_data=val_gen,
                     validation_steps=STEP_SIZE_VALID,
                     callbacks=[stopping_criteria])
 
 
-# siamese_network.save_weights('.my_checkpoint')
 siamese_network.evaluate(test_gen, steps = len(test_data))
+
+plt.plot(history.history['loss'])
+plt.title('model loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train'], loc='upper left')
+plt.show()
 
 acc = n_way_one_shot(3, train_data, siamese_network, test_datagen)
 
@@ -242,4 +228,3 @@ test_acc = n_way_one_shot(3, test_data, siamese_network, test_datagen)
 print(f"train accuracy: {acc}")
 print(f"test accuracy: {test_acc}")
 
-#
