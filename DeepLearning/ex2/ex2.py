@@ -5,7 +5,7 @@ Created on Fri Apr  9 17:31:28 2021
 
 @author: saharbaribi
 """
-
+import sys, os
 import numpy as np
 import pandas as pd
 from tensorflow.keras.preprocessing.image import ImageDataGenerator as generator
@@ -23,6 +23,13 @@ IMAGE_SIZE = (250, 250)
 TRAIN_SIZE = 2200
 BATCH_SIZE = 32
 
+# Disable
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__
 
 def create_gen(data, datagen, train=True):
     if train:
@@ -92,20 +99,19 @@ def calculate_distance(tensors):
 
 ## Creating the model:
 def create_model():
-    # with tf.device('/CPU:0'):
     input1 = Input(IMAGE_SIZE +(3,))
     input2 = Input(IMAGE_SIZE+(3,))
 
     model = Sequential()
     model.add(Conv2D(64, (10, 10), activation='relu', input_shape=IMAGE_SIZE+(3,)))
     model.add(MaxPooling2D())
-    model.add(Conv2D(16, (7, 7), activation='relu'))
+    model.add(Conv2D(32, (7, 7), activation='relu'))
     model.add(MaxPooling2D())
-    model.add(Conv2D(16, (4, 4), activation='relu'))
+    model.add(Conv2D(32, (4, 4), activation='relu'))
     model.add(MaxPooling2D())
-    model.add(Conv2D(16, (4, 4), activation='relu'))
+    model.add(Conv2D(32, (4, 4), activation='relu'))
     model.add(Flatten())
-    model.add(Dense(16, activation='sigmoid'))
+    model.add(Dense(1024, activation='sigmoid'))
 
     encoded1 = model(input1)
     encoded2 = model(input2)
@@ -118,6 +124,7 @@ def create_model():
     network = Model(inputs=inputs, outputs=output_layer)
 
     return network
+
 
 
 def n_way_one_shot(n, data, model, datagen):
@@ -163,7 +170,7 @@ def select_pairs_to_compare(n, images, name_to_compare):
     sample_false = images[images['name'] != name_to_compare]['image'].sample(n=n - 1)
     return sample_false
 
-def read_images():
+# def read_images():
 #     max_files = 0
 #     folders_with_1 = 0
 #     print(f"files in dir:{len(glob.glob(os.path.join(FILES_PATH, '*')))}")
@@ -201,15 +208,18 @@ STEP_SIZE_TRAIN=TRAIN_SIZE//BATCH_SIZE
 
 siamese_network.fit(train_gen,
                     steps_per_epoch=STEP_SIZE_TRAIN,
-                    epochs=5,shuffle=False)
+                    epochs=15,shuffle=False)
 
 
 # siamese_network.save_weights('.my_checkpoint')
-
-
-acc = n_way_one_shot(5, train_data, siamese_network, datagen)
+N = 3
+blockPrint()
+acc = n_way_one_shot(N, train_data, siamese_network, datagen)
+enablePrint()
 print(f"train accuracy: {acc}")
-test_acc = n_way_one_shot(5, test_data, siamese_network, datagen)
-print(f"test accuracy: {acc}")
+blockPrint()
+test_acc = n_way_one_shot(N, test_data, siamese_network, datagen)
+enablePrint()
+print(f"test accuracy: {test_acc}")
 
 #
