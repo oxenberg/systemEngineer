@@ -50,3 +50,7 @@ DeepLearning/ex1/ex1_311232730_312460132.zip
 *.index
 DeepLearning/ex2/.my_checkpoint.data-00000-of-00001
 DeepLearning/ex2/checkpoint
+RecSys/project/MKR-master/data/book/BX-Book-Ratings.csv
+RecSys/project/MKR-master/data/music/user_artists.dat
+RecSys/project/MKR-master/data/movie/ratings.dat
+*.csv
