@@ -1,3 +1,8 @@
+import gensim.downloader
+from gensim.models import Word2Vec
+from gensim.models import KeyedVectors
+
+
 def read_lyrics_data(path):
 
     def concat_name(file_names):
@@ -11,3 +16,19 @@ def read_lyrics_data(path):
     data["file_name"] = data[["artist", "title"]].apply(concat_name, axis=1)
 
     return data
+
+
+def upload_w2v():
+    model = gensim.downloader.load('glove-wiki-gigaword-50')
+    model.save("word2vec.wordvectors")
+    return model
+
+
+def load_model(path="word2vec.wordvectors"):
+    model = KeyedVectors.load(path, mmap='r')
+    return model
+
+
+def get_word_embed(word, model):
+    return model.wv[word]
+

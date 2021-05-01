@@ -54,3 +54,6 @@ RecSys/project/MKR-master/data/book/BX-Book-Ratings.csv
 RecSys/project/MKR-master/data/music/user_artists.dat
 RecSys/project/MKR-master/data/movie/ratings.dat
 *.csv
+*.npy
+DeepLearning/Ex3/word2vec.model
+DeepLearning/Ex3/word2vec.wordvectors
