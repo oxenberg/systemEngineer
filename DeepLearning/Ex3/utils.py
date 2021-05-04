@@ -1,10 +1,11 @@
 import gensim.downloader
 from gensim.models import KeyedVectors
+from gensim.models import Word2Vec
 import pandas as pd
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Embedding, LSTM, Input
-
+from keras.layers import Dense, Dropout, Embedding, LSTM, Input, Bidirectional, BatchNormalization, TimeDistributed
+from tensorflow import keras
 from tensorflow import convert_to_tensor, concat
 from pretty_midi import PrettyMIDI
 from tensorflow.keras.optimizers import Adam
@@ -14,7 +15,7 @@ params = {
     "TEST_FILE": "lyrics_test_set.csv",
     "TRAIN_FILE": "lyrics_train_set.csv",
     "MIDI_FILES_PATH": "midi_files/",
-    "BATCH_SIZE": 256
+    "BATCH_SIZE": 600 # this is the seq len we use. we will train the model on a single song at a time.
 }
 
 
@@ -47,6 +48,11 @@ def upload_w2v():
     model.save("word2vec.wordvectors")
     return model
 
+def train_word2vec(sentences):
+    model = Word2Vec(sentences=sentences, size=300, window=3, min_count=1, workers=4)
+    word_vectors = model.wv
+    word_vectors.save("word2vec.wordvectors")
+
 
 def load_model(path="word2vec.wordvectors"):
     model = KeyedVectors.load(path, mmap='r')
@@ -55,17 +61,40 @@ def load_model(path="word2vec.wordvectors"):
 
 def get_word_embed(word, model):
     try:
-        return model.wv[word]
+        if word =='<PAD>':
+            vector = np.zeros((300,))
+        else:
+            vector = model.wv[word]
+        return vector
     except KeyError:
         return None
 
+#
+# def create_rnn(input_dim, output_dim):
+#     model = Sequential()
+#     model.add(Embedding(input_dim=output_dim, output_dim=input_dim))
+#     model.add(Dropout(0.1))
+#     model.add(LSTM(256))
+#     model.add(Dense(output_dim, activation = "softmax"))
+#     model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001))
+#
+#     return model
 
-def create_rnn(input_dim, output_dim):
-    model = Sequential()
-    model.add(Input(input_dim))
-    model.add(Dropout(0.1))
-    model.add(LSTM(256))
-    model.add(Dense(output_dim, activation = "softmax"))
-    model.compile(loss='categorical_crossentropy', optimizer=Adam(learning_rate=0.001))
 
+def create_rnn(units, input_dim, output_size):
+
+    lstm_layer = Bidirectional(LSTM(units, input_shape=(None, input_dim * 2), return_sequences=True))
+
+    model = Sequential(
+        [
+            lstm_layer,
+            BatchNormalization(),
+            TimeDistributed(Dense(output_size, activation = "softmax")),
+        ]
+    )
+    model.compile(
+        loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+        optimizer="sgd",
+        metrics=["accuracy"],
+    )
     return model
