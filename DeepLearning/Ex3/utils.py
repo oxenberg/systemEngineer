@@ -16,7 +16,7 @@ def read_lyrics_data(path):
     def concat_name(file_names):
         artist = "_".join(file_names[0].split())
         title = "_".join(file_names[1].split())
-        file_name = f"{artist}_-_{title}.mid"
+        file_name = f"{params['MIDI_FILES_PATH']}{artist}_-_{title}.mid"
         return file_name
 
     data = pd.read_csv(path, sep='\n', header=None)
