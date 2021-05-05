@@ -4,18 +4,21 @@ from gensim.models import Word2Vec
 import pandas as pd
 import numpy as np
 from keras.models import Sequential
-from keras.layers import Dense, Dropout, Embedding, LSTM, Input, Bidirectional, BatchNormalization, TimeDistributed
+from keras.layers import Dense, Dropout, Embedding, LSTM, Input, Bidirectional, BatchNormalization, TimeDistributed, RNN, LSTMCell
 from tensorflow import keras
 from tensorflow import convert_to_tensor, concat
 from pretty_midi import PrettyMIDI
 from tensorflow.keras.optimizers import Adam
 from mido.midifiles.meta import KeySignatureError
+import pickle
 
 params = {
     "TEST_FILE": "lyrics_test_set.csv",
     "TRAIN_FILE": "lyrics_train_set.csv",
     "MIDI_FILES_PATH": "midi_files/",
-    "BATCH_SIZE": 600 # this is the seq len we use. we will train the model on a single song at a time.
+    "BATCH_SIZE": 8,
+    "SEQ_LEN": 600
+
 }
 
 
@@ -61,13 +64,23 @@ def load_model(path="word2vec.wordvectors"):
 
 def get_word_embed(word, model):
     try:
-        if word =='<PAD>':
+        if word =='<PAD>' or '<UNK>':
             vector = np.zeros((300,))
         else:
             vector = model.wv[word]
         return vector
     except KeyError:
         return None
+
+def save_pickle(file_name, data):
+    outfile = open(file_name,'wb')
+    pickle.dump(data,outfile)
+    outfile.close()
+
+def load_pickle(file_name):
+    infile = open(file_name, 'rb')
+    data = pickle.load(infile)
+    infile.close()
 
 #
 # def create_rnn(input_dim, output_dim):
@@ -82,8 +95,8 @@ def get_word_embed(word, model):
 
 
 def create_rnn(units, input_dim, output_size):
-
-    lstm_layer = Bidirectional(LSTM(units, input_shape=(None, input_dim * 2), return_sequences=True))
+    lstm_layer = RNN(LSTMCell(units), input_shape=(None, input_dim), return_sequences=True)
+    # lstm_layer = Bidirectional(LSTM(units, input_shape=(None, input_dim * 2), return_sequences=True))
 
     model = Sequential(
         [
@@ -93,8 +106,9 @@ def create_rnn(units, input_dim, output_size):
         ]
     )
     model.compile(
+        # loss='categorical_crossentropy',
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-        optimizer="sgd",
-        metrics=["accuracy"],
+        optimizer=Adam(learning_rate=0.001),
+        metrics=["accuracy"]
     )
     return model

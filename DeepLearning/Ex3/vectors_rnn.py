@@ -1,6 +1,5 @@
 from utils import *
 from matplotlib import pyplot as plt
-import pickle
 
 from glob import glob
 
@@ -23,6 +22,7 @@ def create_vocab(data):
         words.update(lyrics)
     words.add('<END>')
     words.add('<PAD>')
+    words.add('<UNK>')
     word2index = {w: i for i, w in enumerate(list(words))}
     # lengths2 = [num for num in lengths if num>600]
     # print(len(lengths2))
@@ -42,7 +42,7 @@ def get_embeddings(word, midi_data, embedding_model):
 #     y_train[np.arange(y.size), y] = 1
 #     return y_train
 
-def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_dim, vocab, seq_len=600):
+def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_dim, vocab, seq_len=params["SEQ_LEN"]):
     song_counter = 0
     x_train = np.zeros((len(train_data), seq_len,input_dim))
     y_train = np.zeros((len(train_data), seq_len))
@@ -51,6 +51,8 @@ def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_di
         if len(song_lyrics)<seq_len:
             padding_size = seq_len - len(song_lyrics)
             song_lyrics = song_lyrics + padding_size*['<PAD>']
+        elif len(song_lyrics)>=seq_len:
+            song_lyrics = song_lyrics[:seq_len]
         midi_data_for_model = row["midi_vectors"]
         if midi_data_for_model is None:
             continue
@@ -58,7 +60,11 @@ def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_di
         words_labels = []
         for j in range(len(song_lyrics)-1):
             word = song_lyrics[j]
-            next_word_index = vocab[song_lyrics[j+1]]
+            next_word = song_lyrics[j+1]
+            if next_word in vocab:
+                next_word_index = vocab[next_word]
+            else:
+                next_word_index = vocab['<UNK>']
             input_vec = get_embeddings(word, midi_data_for_model, embedding_model)
             if input_vec is None:
                 continue
@@ -71,78 +77,52 @@ def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_di
 
     return x_train, y_train
 
-def filter_data(train_data,midi_func, seq_len = 600):
+def filter_data(train_data,midi_func, seq_len=params["SEQ_LEN"]):
     midi_vectors = []
-    to_many_words = []
+    # to_many_words = []
     for i, row in train_data.iterrows():
-        song_lyrics = row["lyrics"].split(" ")
-        if len(song_lyrics) > seq_len:
-            to_many_words.append(True)
-        else:
-            to_many_words.append(False)
+        # song_lyrics = row["lyrics"].split(" ")
+        # if len(song_lyrics) > seq_len:
+        #     to_many_words.append(True)
+        # else:
+        #     to_many_words.append(False)
         midi_data_for_model = midi_func(row['file_name'])
         midi_vectors.append(midi_data_for_model)
-    train_data['seq'] = to_many_words
+    # train_data['seq'] = to_many_words
     train_data['midi_vectors'] = midi_vectors
 
-    data = train_data[train_data['seq']==False]
-    data = data[data['midi_vectors'].notnull()]
+    # data = train_data[train_data['seq']==False]
+    data = train_data[train_data['midi_vectors'].notnull()]
     return data
 
 
-#
-# def train_model(train_data, midi_func, embedding_model, input_dim, output_dim, vocab):
-#     train_df = pd.DataFrame(columns=["current", "next"])
-#     current = []
-#     next = []
-#     for i, row in train_data.iterrows():
-#         midi_data_for_model = midi_func(row['file_name'])
-#         if midi_data_for_model is None:
-#             continue
-#         song_lyrics = row["lyrics"].split(" ")
-#         for j in range(len(song_lyrics)-1):
-#             word = song_lyrics[j]
-#             next_word_index = vocab[song_lyrics[j+1]]
-#             input_vec = get_embeddings(word, midi_data_for_model, embedding_model)
-#             if input_vec is None:
-#                 continue
-#             current.append(input_vec)
-#             next.append(next_word_index)
-#         input_vec = get_embeddings(song_lyrics[-1], midi_data_for_model, embedding_model)
-#         current.append(input_vec)
-#         next.append(vocab['<END>'])
-#     train_df["next"] = next
-#     train_df["current"] = current
-#     X = train_df.iloc[:, :-1]
-#     y = train_df.iloc[:, -1]
-#     # y = tensorflow.keras.utils.to_categorical(train_df[:, -1], num_classes=len(vocab))
-#     lstm = create_rnn(input_dim, output_dim)
-#
-#     lstm.fit(X, y, batch_size = params["BATCH_SIZE"], epochs = 1, validation_split = 0.25)
-
-
 data = read_lyrics_data(params["TRAIN_FILE"])
-sentences = data['lyrics']
-sentences = [sentence.split(" ") for sentence in sentences]
+test = read_lyrics_data(params["TEST_FILE"])
+
+# sentences = data['lyrics']
+# sentences = [sentence.split(" ") for sentence in sentences]
 # train_word2vec(sentences)
 data = filter_data(data, extract_midi_vector)
+test = filter_data(test, extract_midi_vector)
 filename = 'train_with_vectors'
-outfile = open(filename,'wb')
-pickle.dump(data,outfile)
-outfile.close()
+file_name_test = 'test_with_vectors'
+save_pickle(filename, data)
+save_pickle(file_name_test, test)
+# load_pickle(filename)
 
 # # data = data.iloc[:1]
 vocab = create_vocab(data)
 vocab_size = len(vocab)
 input_dim = 312
-units = 64
+units = 256
 embedding_model = load_model()
 
 
+
 x_train, y_train = preprocess_data(data, extract_midi_vector, embedding_model, input_dim, vocab_size, vocab)
+x_test, y_test = preprocess_data(test, extract_midi_vector, embedding_model, input_dim, vocab_size, vocab)
 model = create_rnn(units, input_dim, vocab_size)
 print("fitting model")
 model.fit(
-    x_train, y_train, batch_size=params["BATCH_SIZE"], epochs=1
+    x_train, y_train, batch_size=params["BATCH_SIZE"], epochs=5
 )
-# train_model(data, extract_midi_vector, embedding_model, input_dim, vocab_size, vocab)
