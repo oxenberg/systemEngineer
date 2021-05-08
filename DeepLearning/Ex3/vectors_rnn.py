@@ -3,31 +3,6 @@ from matplotlib import pyplot as plt
 from image_rnn import *
 from tqdm import tqdm
 
-from glob import glob
-
-# print("uploading model")
-# model = upload_w2v()
-
-# print("getting vector")
-# v = get_word_embed("all", model)
-# print(v.shape)
-
-
-def create_vocab(data):
-    words = set()
-    # lengths = []
-    for i in data["lyrics"]:
-        lyrics = i
-        words.update(lyrics)
-    words.add('<END>')
-    words.add('<PAD>')
-    words.add('<UNK>')
-    word2index = {w: i for i, w in enumerate(list(words)) if len(w)>0}
-    # lengths2 = [num for num in lengths if num>600]
-    # print(len(lengths2))
-    return word2index
-
-
 def get_embeddings(word, midi_data, embedding_model):
     if word=='<PAD>':
         vector_size = 300+midi_data.shape[-1]
@@ -39,11 +14,6 @@ def get_embeddings(word, midi_data, embedding_model):
     input = concat([word_vec, midi_data], 0)
     return input
 
-# def convert_y(y, vocab_size):
-#     y = np.array(y)
-#     y_train = np.zeros((y.size, vocab_size))
-#     y_train[np.arange(y.size), y] = 1
-#     return y_train
 
 def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_dim, vocab, seq_len=params["SEQ_LEN"]):
     song_counter = 0
@@ -82,21 +52,14 @@ def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_di
 
     return x_train, y_train
 
+
 def filter_data(train_data,midi_func, seq_len=params["SEQ_LEN"]):
     midi_vectors = []
-    # to_many_words = []
     for i, row in train_data.iterrows():
-        # song_lyrics = row["lyrics"].split(" ")
-        # if len(song_lyrics) > seq_len:
-        #     to_many_words.append(True)
-        # else:
-        #     to_many_words.append(False)
         midi_data_for_model = midi_func(row['file_name'])
         midi_vectors.append(midi_data_for_model)
-    # train_data['seq'] = to_many_words
     train_data['midi_vectors'] = midi_vectors
 
-    # data = train_data[train_data['seq']==False]
     data = train_data[train_data['midi_vectors'].notnull()].reset_index(drop=True)
     return data
 
