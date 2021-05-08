@@ -1,5 +1,7 @@
 from utils import *
 from matplotlib import pyplot as plt
+from image_rnn import *
+from tqdm import tqdm
 
 from glob import glob
 
@@ -11,24 +13,25 @@ from glob import glob
 # print(v.shape)
 
 
-
-
 def create_vocab(data):
     words = set()
     # lengths = []
     for i in data["lyrics"]:
-        lyrics = i.lower().split(" ")
-        # lengths.append(len(lyrics))
+        lyrics = i
         words.update(lyrics)
     words.add('<END>')
     words.add('<PAD>')
     words.add('<UNK>')
-    word2index = {w: i for i, w in enumerate(list(words))}
+    word2index = {w: i for i, w in enumerate(list(words)) if len(w)>0}
     # lengths2 = [num for num in lengths if num>600]
     # print(len(lengths2))
     return word2index
 
+
 def get_embeddings(word, midi_data, embedding_model):
+    if word=='<PAD>':
+        vector_size = 300+midi_data.shape[-1]
+        return np.zeros((vector_size,))
     word_vec = get_word_embed(word, embedding_model)
     if word_vec is None:
         return None
@@ -60,11 +63,13 @@ def preprocess_data(train_data, midi_func, embedding_model, input_dim, output_di
         words_labels = []
         for j in range(len(song_lyrics)-1):
             word = song_lyrics[j]
+            if word not in vocab:
+              word = '<UNK>'
             next_word = song_lyrics[j+1]
             if next_word in vocab:
-                next_word_index = vocab[next_word]
+              next_word_index = vocab[next_word]
             else:
-                next_word_index = vocab['<UNK>']
+              next_word_index = vocab['<UNK>']
             input_vec = get_embeddings(word, midi_data_for_model, embedding_model)
             if input_vec is None:
                 continue
@@ -92,37 +97,65 @@ def filter_data(train_data,midi_func, seq_len=params["SEQ_LEN"]):
     train_data['midi_vectors'] = midi_vectors
 
     # data = train_data[train_data['seq']==False]
-    data = train_data[train_data['midi_vectors'].notnull()]
+    data = train_data[train_data['midi_vectors'].notnull()].reset_index(drop=True)
     return data
 
+# #
+# data = read_lyrics_data(params["TRAIN_FILE"])
+# test = read_lyrics_data(params["TEST_FILE"])
+# #
+# # sentences = data['lyrics']
+# # # sentences = [sentence.split(" ") for sentence in sentences]
+# # train_word2vec(sentences)
+# filename = 'train_with_midi_vectors'
+# file_name_test = 'test_with_midi_vectors'
+# #
+# # autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=10, batch=params['BATCH_SIZE_AUTO'])
+# # autoencoder.fit()
+#
+# data = filter_data(data, extract_midi_vector)
+# test = filter_data(test, extract_midi_vector)
+# # #
+# save_pickle(filename, data)
+# save_pickle(file_name_test, test)
+# # data = load_pickle(filename)
+# # test = load_pickle(file_name_test)
+# #
+# # # # data = data.iloc[:1]
+# # vocab = create_vocab(data)
+# # print(list(vocab.keys()))
+# # vocab_size = len(vocab)
+# # input_dim = 312
+# # units = 256
+# # embedding_model = load_model()
+#
+#
+#
+# # x_train, y_train = preprocess_data(data, extract_midi_vector, embedding_model, input_dim, vocab_size, vocab)
+# # x_test, y_test = preprocess_data(test, extract_midi_vector, embedding_model, input_dim, vocab_size, vocab)
+# # print(x_train.shape)
+# # model = create_rnn(params["UNITS"], input_dim, vocab_size)
+# # print("fitting model")
+# # model.fit(
+# #     x_train, y_train, batch_size=params["BATCH_SIZE"], epochs=5
+# # )
+#
 
-data = read_lyrics_data(params["TRAIN_FILE"])
-test = read_lyrics_data(params["TEST_FILE"])
-
-# sentences = data['lyrics']
-# sentences = [sentence.split(" ") for sentence in sentences]
-# train_word2vec(sentences)
-data = filter_data(data, extract_midi_vector)
-test = filter_data(test, extract_midi_vector)
-filename = 'train_with_vectors'
-file_name_test = 'test_with_vectors'
-save_pickle(filename, data)
-save_pickle(file_name_test, test)
-# load_pickle(filename)
-
-# # data = data.iloc[:1]
-vocab = create_vocab(data)
-vocab_size = len(vocab)
-input_dim = 312
-units = 256
-embedding_model = load_model()
+def create_images():
+    images_path = []
+    files = pd.read_csv("diff.txt", header=None, names=["song_name"])
+    for song_name in tqdm(files["song_name"]):
+        file = f"{params['MIDI_FILES_PATH']}{song_name}.mid"
+        try:
+            pm = pretty_midi.PrettyMIDI(file)
+        except:
+            print("could not read midi files")
+        try:
+            image_path = plot_piano_roll(pm, song_name, folder="images")
+            images_path.append(image_path)
+        except:
+            print("could not create plot")
+            images_path.append(None)
 
 
-
-x_train, y_train = preprocess_data(data, extract_midi_vector, embedding_model, input_dim, vocab_size, vocab)
-x_test, y_test = preprocess_data(test, extract_midi_vector, embedding_model, input_dim, vocab_size, vocab)
-model = create_rnn(units, input_dim, vocab_size)
-print("fitting model")
-model.fit(
-    x_train, y_train, batch_size=params["BATCH_SIZE"], epochs=5
-)
+create_images()

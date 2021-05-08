@@ -13,16 +13,16 @@ import numpy as np
 # our lib
 from utils import read_lyrics_data, params
 
-IMAGES_PATH = "images/train/"
-CREATE_IMAGES = False
-# autoencoder params
-IMAGE_SAHPE = (252, 252)
-BATCH_SIZE_AUTO = 8
+# IMAGES_PATH = "images/train/"
+# CREATE_IMAGES = False
+# # autoencoder params
+# IMAGE_SAHPE = (252, 252)
+# BATCH_SIZE_AUTO = 8
 
 
 def plot_piano_roll(pm, name=None, folder=None):
     ax = plt.axes()
-    image_path = f"{IMAGES_PATH}{folder}/{name}.png"
+    image_path = f"{params['IMAGES_PATH']}/{folder}/{name}.png"
     # Use librosa's specshow function for displaying the piano roll
     fig = librosa.display.specshow(pm.get_piano_roll(), ax=ax,
                                    hop_length=1, x_axis='time', y_axis='cqt_note')
@@ -34,15 +34,16 @@ def plot_piano_roll(pm, name=None, folder=None):
 def create_images(data, name):
     print(f"---- create {name} in images file ----")
     images_path = []
-    if CREATE_IMAGES:
-        for file in tqdm(data["file_name"][561:]):
+    if params['CREATE_IMAGES']:
+        for file in tqdm(data["file_name"]):
             try:
-                song_name = file.split(".")[0]
+                song_name = file.split('/')[1].split(".")[0]
                 pm = pretty_midi.PrettyMIDI(file)
                 image_path = plot_piano_roll(pm, song_name, folder=name)
                 images_path.append(image_path)
-            except (KeySignatureError, OSError, EOFError, ValueError):
-                print(f"Exception: could not create {file}")
+            except (KeySignatureError, OSError, EOFError, ValueError) as e:
+                print(e)
+                # print(f"Exception: could not create {file}")
                 images_path.append(None)
         data["image_path"] = images_path
         print(f"save {name} file")
@@ -66,7 +67,7 @@ class Autoencoder:
     def build_data_set(self, images_path):
         all_images_name = glob.glob(f"{images_path}*.png")
         all_data = pd.DataFrame(all_images_name, columns=["image_path"])
-        all_data["name"] = all_data["image_path"].apply(lambda x: x.split("/")[1].split(".")[0])
+        all_data["name"] = all_data["image_path"].apply(lambda x: x.split("/")[2].split(".")[0])
 
         return all_data
 
@@ -102,6 +103,7 @@ class Autoencoder:
 
         autoencoder = keras.Model(input_img, decoded)
         autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+        autoencoder.summary()
 
         return autoencoder, encoded, input_img
 
@@ -127,6 +129,7 @@ class Autoencoder:
         need to send to be concated with the word embddibngs
         '''
 
+        name = name.split("/")[1].split(".")[0]
         song = self.all_data[self.all_data["name"] == name]
 
         # no song exist
@@ -164,7 +167,7 @@ class Autoencoder:
 
 if __name__ == "__main__":
 
-    if CREATE_IMAGES:
+    if params['CREATE_IMAGES']:
         # read data from the test train files (not the mid files)
         train = read_lyrics_data(params["TRAIN_FILE"])
         test = read_lyrics_data(params["TEST_FILE"])
@@ -173,9 +176,9 @@ if __name__ == "__main__":
         create_images(train, name="train")
         create_images(test, name="test")
 
-    autoencoder = Autoencoder(IMAGES_PATH, IMAGE_SAHPE, epochs=5, batch=BATCH_SIZE_AUTO)
-
-    autoencoder.fit()
-
-    autoencoder.create_image_embeddings("elmore_james_-_dust_my_broom")
-    autoencoder.show_reconstract_exemple_images()
+    # autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=1, batch=params['BATCH_SIZE_AUTO'])
+    # autoencoder.fit()
+    #
+    # embeding = autoencoder.create_image_embeddings("midi_files/elmore_james_-_dust_my_broom.mid")
+    # print(embeding.shape)
+    # autoencoder.show_reconstract_exemple_images()
