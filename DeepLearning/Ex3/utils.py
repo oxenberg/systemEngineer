@@ -21,7 +21,7 @@ params = {
     "MIDI_FILES_PATH": "midi_files/",
     "IMAGES_PATH": "images",
     "IMAGE_SAHPE" : (128, 128),
-    "CREATE_IMAGES" : True,
+    "CREATE_IMAGES" : False,
     "BATCH_SIZE_AUTO" : 8,
     "BATCH_SIZE": 8,
     "SEQ_LEN": 50,

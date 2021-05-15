@@ -65,7 +65,7 @@ class Autoencoder:
         self.autoencoder_model = ""
 
     def build_data_set(self, images_path):
-        all_images_name = glob.glob(f"{images_path}*.png")
+        all_images_name = glob.glob(f"{images_path}/*/*.png")
         all_data = pd.DataFrame(all_images_name, columns=["image_path"])
         all_data["name"] = all_data["image_path"].apply(lambda x: x.split("/")[2].split(".")[0])
 
