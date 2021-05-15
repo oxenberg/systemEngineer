@@ -63,32 +63,58 @@ def filter_data(train_data,midi_func, seq_len=params["SEQ_LEN"]):
     data = train_data[train_data['midi_vectors'].notnull()].reset_index(drop=True)
     return data
 
-# #
-data = read_lyrics_data(params["TRAIN_FILE"])
-test = read_lyrics_data(params["TEST_FILE"])
-# #
-# # sentences = data['lyrics']
-# # # sentences = [sentence.split(" ") for sentence in sentences]
-# # train_word2vec(sentences)
-filename = 'train_with_midi_image'
-file_name_test = 'test_with_midi_image'
-# #
-autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=10, batch=params['BATCH_SIZE_AUTO'])
-autoencoder.fit()
+
+def prepare_data_for_colab(midi_type):
+    data = read_lyrics_data(params["TRAIN_FILE"])
+    test = read_lyrics_data(params["TEST_FILE"])
+    if midi_type=="vectors":
+        filename = 'train_with_midi_vectors'
+        file_name_test = 'test_with_midi_vectors'
+        midi_func = extract_midi_vector
+    else:
+        filename = 'train_with_midi_image'
+        file_name_test = 'test_with_midi_image'
+        autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=10, batch=params['BATCH_SIZE_AUTO'])
+        autoencoder.fit()
+        midi_func = autoencoder.create_image_embeddings
+
+    data = filter_data(data, midi_func)
+    test = filter_data(test, midi_func)
+    save_pickle(filename, data)
+    save_pickle(file_name_test, test)
+
+#### prepare midi vectors data
+prepare_data_for_colab("vectors")
+#### prepare midi images data
+prepare_data_for_colab("images")
+
 #
-data = filter_data(data, autoencoder.create_image_embeddings)
-test = filter_data(test, autoencoder.create_image_embeddings)
 # # #
-save_pickle(filename, data)
-save_pickle(file_name_test, test)
-# # data = load_pickle(filename)
-# # test = load_pickle(file_name_test)
+# data = read_lyrics_data(params["TRAIN_FILE"])
+# test = read_lyrics_data(params["TEST_FILE"])
+# # #
+# # # sentences = data['lyrics']
+# # # # sentences = [sentence.split(" ") for sentence in sentences]
+# # # train_word2vec(sentences)
+# filename = 'train_with_midi_image'
+# file_name_test = 'test_with_midi_image'
+# # #
+# autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=10, batch=params['BATCH_SIZE_AUTO'])
+# autoencoder.fit()
 # #
-# # # # data = data.iloc[:1]
-# # vocab = create_vocab(data)
-# # print(list(vocab.keys()))
-# # vocab_size = len(vocab)
-# # input_dim = 312
+# data = filter_data(data, autoencoder.create_image_embeddings)
+# test = filter_data(test, autoencoder.create_image_embeddings)
+# # # #
+# save_pickle(filename, data)
+# save_pickle(file_name_test, test)
+# # # data = load_pickle(filename)
+# # # test = load_pickle(file_name_test)
+# # #
+# # # # # data = data.iloc[:1]
+# # # vocab = create_vocab(data)
+# # # print(list(vocab.keys()))
+# # # vocab_size = len(vocab)
+# # # input_dim = 312
 # # units = 256
 # # embedding_model = load_model()
 #
