@@ -64,23 +64,23 @@ def filter_data(train_data,midi_func, seq_len=params["SEQ_LEN"]):
     return data
 
 # #
-# data = read_lyrics_data(params["TRAIN_FILE"])
-# test = read_lyrics_data(params["TEST_FILE"])
+data = read_lyrics_data(params["TRAIN_FILE"])
+test = read_lyrics_data(params["TEST_FILE"])
 # #
 # # sentences = data['lyrics']
 # # # sentences = [sentence.split(" ") for sentence in sentences]
 # # train_word2vec(sentences)
-# filename = 'train_with_midi_vectors'
-# file_name_test = 'test_with_midi_vectors'
+filename = 'train_with_midi_image'
+file_name_test = 'test_with_midi_image'
 # #
-# # autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=10, batch=params['BATCH_SIZE_AUTO'])
-# # autoencoder.fit()
+autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=10, batch=params['BATCH_SIZE_AUTO'])
+autoencoder.fit()
 #
-# data = filter_data(data, extract_midi_vector)
-# test = filter_data(test, extract_midi_vector)
+data = filter_data(data, autoencoder.create_image_embeddings)
+test = filter_data(test, autoencoder.create_image_embeddings)
 # # #
-# save_pickle(filename, data)
-# save_pickle(file_name_test, test)
+save_pickle(filename, data)
+save_pickle(file_name_test, test)
 # # data = load_pickle(filename)
 # # test = load_pickle(file_name_test)
 # #
@@ -104,21 +104,21 @@ def filter_data(train_data,midi_func, seq_len=params["SEQ_LEN"]):
 # # )
 #
 
-def create_images():
-    images_path = []
-    files = pd.read_csv("diff.txt", header=None, names=["song_name"])
-    for song_name in tqdm(files["song_name"]):
-        file = f"{params['MIDI_FILES_PATH']}{song_name}.mid"
-        try:
-            pm = pretty_midi.PrettyMIDI(file)
-        except:
-            print("could not read midi files")
-        try:
-            image_path = plot_piano_roll(pm, song_name, folder="images")
-            images_path.append(image_path)
-        except:
-            print("could not create plot")
-            images_path.append(None)
-
-
-create_images()
+# def create_images():
+#     images_path = []
+#     files = pd.read_csv("diff.txt", header=None, names=["song_name"])
+#     for song_name in tqdm(files["song_name"]):
+#         file = f"{params['MIDI_FILES_PATH']}{song_name}.mid"
+#         try:
+#             pm = pretty_midi.PrettyMIDI(file)
+#         except:
+#             print("could not read midi files")
+#         try:
+#             image_path = plot_piano_roll(pm, song_name, folder="images")
+#             images_path.append(image_path)
+#         except:
+#             print("could not create plot")
+#             images_path.append(None)
+#
+#
+# create_images()
