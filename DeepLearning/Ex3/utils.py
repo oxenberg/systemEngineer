@@ -189,7 +189,7 @@ def create_song_features(x):
     return x_song
 
 
-def create_rnn(units, input_dim, output_size, embedding_weights):
+def create_rnn(units, input_dim, output_size, embedding_weights, midi_dim, midi_weights):
     input_word = keras.Input(shape=(None,), name="word")
     input_song = keras.Input(shape=(None,), name="song")
 
@@ -198,11 +198,11 @@ def create_rnn(units, input_dim, output_size, embedding_weights):
                          embeddings_initializer=keras.initializers.Constant(embedding_weights),
                          trainable=False, mask_zero=True)(input_word)
 
-    word_emb = Embedding(output_size, params["EMBEDDINGS_DIM"],
-                         embeddings_initializer=keras.initializers.Constant(embedding_weights),
+    midi_emb = Embedding(output_size, midi_dim,
+                         embeddings_initializer=keras.initializers.Constant(midi_weights),
                          trainable=False, mask_zero=True)(input_song)
 
-    all_emb = concatenate([word_emb, word_emb])
+    all_emb = concatenate([word_emb, midi_emb])
 
     lstm_layer = Bidirectional(LSTM(units, input_shape=(None, input_dim * 2),
                                     return_sequences=True))(all_emb)
