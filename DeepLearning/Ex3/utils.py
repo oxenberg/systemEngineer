@@ -20,7 +20,7 @@ params = {
     "TRAIN_FILE": "lyrics_train_set.csv",
     "MIDI_FILES_PATH": "midi_files/",
     "IMAGES_PATH": "images",
-    "IMAGE_SAHPE" : (128, 128),
+    "IMAGE_SAHPE" : (246, 246),
     "CREATE_IMAGES" : False,
     "BATCH_SIZE_AUTO" : 8,
     "BATCH_SIZE": 8,
