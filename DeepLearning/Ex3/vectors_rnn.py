@@ -1,6 +1,6 @@
 from utils import *
 from matplotlib import pyplot as plt
-from image_rnn import *
+from image_rnn import Autoencoder
 from tqdm import tqdm
 
 def get_embeddings(word, midi_data, embedding_model):
@@ -73,7 +73,7 @@ test = read_lyrics_data(params["TEST_FILE"])
 filename = 'train_with_midi_image'
 file_name_test = 'test_with_midi_image'
 # #
-autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=10, batch=params['BATCH_SIZE_AUTO'])
+autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=20, batch=params['BATCH_SIZE_AUTO'])
 autoencoder.fit()
 #
 data = filter_data(data, autoencoder.create_image_embeddings)
