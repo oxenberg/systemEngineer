@@ -281,3 +281,7 @@ def generate_song(song_num, tokenizer, test, model, train):
     predict_stohcastic(model, song, lyrics_gen)
 
     return lyrics_gen
+
+
+# upload_w2v()
+
