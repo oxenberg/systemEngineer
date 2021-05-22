@@ -83,23 +83,26 @@ def prepare_data_for_colab(midi_type):
     save_pickle(filename, data)
     save_pickle(file_name_test, test)
 
-#### prepare midi vectors data
-prepare_data_for_colab("vectors")
-#### prepare midi images data
-prepare_data_for_colab("images")
 
-# #
-data = read_lyrics_data(params["TRAIN_FILE"])
-test = read_lyrics_data(params["TEST_FILE"])
-# #
-# # sentences = data['lyrics']
-# # # sentences = [sentence.split(" ") for sentence in sentences]
-# # train_word2vec(sentences)
-filename = 'train_with_midi_image'
-file_name_test = 'test_with_midi_image'
-# #
-autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=20, batch=params['BATCH_SIZE_AUTO'])
-autoencoder.fit()
+upload_w2v()
+#
+# #### prepare midi vectors data
+# prepare_data_for_colab("vectors")
+# #### prepare midi images data
+# prepare_data_for_colab("images")
+
+# # #
+# data = read_lyrics_data(params["TRAIN_FILE"])
+# test = read_lyrics_data(params["TEST_FILE"])
+# # #
+# # # sentences = data['lyrics']
+# # # # sentences = [sentence.split(" ") for sentence in sentences]
+# # # train_word2vec(sentences)
+# filename = 'train_with_midi_image'
+# file_name_test = 'test_with_midi_image'
+# # #
+# autoencoder = Autoencoder(params['IMAGES_PATH'], params['IMAGE_SAHPE'], epochs=20, batch=params['BATCH_SIZE_AUTO'])
+# autoencoder.fit()
 
 #
 # # #
