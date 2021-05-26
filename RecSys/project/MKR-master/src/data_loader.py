@@ -30,7 +30,7 @@ def load_rating(args):
 
 def dataset_split(rating_np):
     print('splitting dataset ...')
-
+    np.random.seed(42)
     # train:eval:test = 6:2:2
     eval_ratio = 0.2
     test_ratio = 0.2

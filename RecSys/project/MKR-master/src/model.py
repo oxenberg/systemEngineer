@@ -120,6 +120,11 @@ class MKR(object):
         self.optimizer_rs = tf.train.AdamOptimizer(args.lr_rs).minimize(self.loss_rs)
         self.optimizer_kge = tf.train.AdamOptimizer(args.lr_kge).minimize(self.loss_kge)
 
+    # def train_rs(self, sess, feed_dict):
+    #     val = sess.run([self.optimizer_rs, self.loss_rs], feed_dict)
+    #     print("value")
+    #     return val
+
     def train_rs(self, sess, feed_dict):
         return sess.run([self.optimizer_rs, self.loss_rs], feed_dict)
 
