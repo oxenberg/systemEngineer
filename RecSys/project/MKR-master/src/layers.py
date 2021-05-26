@@ -45,7 +45,7 @@ LAYER_IDS = {}
 
 
 def conv2d(x, W, b, strides=1):
-    x = tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+    x = tf.nn.conv2d(x, W, strides=[1, 2, 2, 1], padding='SAME')
     x = tf.nn.bias_add(x, b)
     return tf.nn.relu(x)
 
@@ -55,8 +55,8 @@ def conv_net(data, weights, biases):
     conv1 = conv2d(data, weights[0], biases[0])  # [4,4,4]
 
     # Flatten
+    # flat = tf.reshape(conv1, [-1] + conv1.shape.as_list()[1:])
     flat = tf.reshape(conv1, [-1, weights[1].get_shape().as_list()[0]])
-    print(f"flattend shape{flat.shape}")
     # [2*2*4] = [16]
 
     # Fully connected layer
@@ -116,26 +116,28 @@ class CrossCompressUnit(Layer):
     def __init__(self, dim, name=None):
         super(CrossCompressUnit, self).__init__(name)
         self.dim = dim
+        self.filters_conv = 8 #28
+        self.filters_dense = 16 #16
         with tf.variable_scope(self.name):
-            self.weight_c1_v = tf.get_variable('W1_v', shape=(2, 2, 1, 4), \
+            self.weight_c1_v = tf.get_variable('W1_v', shape=(2, 2, 1, self.filters_conv), \
                               initializer=tf.contrib.layers.xavier_initializer())
-            self.weight_d1_v = tf.get_variable('W2_v', shape=(2 * 2 * 4, 8),
+            self.weight_d1_v = tf.get_variable('W2_v', shape=(self.dim/2 * self.dim/2 * self.filters_conv, self.filters_dense),
                               initializer=tf.contrib.layers.xavier_initializer())
-            self.weight_out_v = tf.get_variable('W3_v', shape=(8, 4),
+            self.weight_out_v = tf.get_variable('W3_v', shape=(self.filters_dense, self.dim),
                                initializer=tf.contrib.layers.xavier_initializer())
-            self.weight_c1_e = tf.get_variable('W1_e', shape=(2, 2, 1, 4), \
+            self.weight_c1_e = tf.get_variable('W1_e', shape=(2, 2, 1, self.filters_conv), \
                               initializer=tf.contrib.layers.xavier_initializer())
-            self.weight_d1_e = tf.get_variable('W2_e', shape=(2 * 2 * 4, 8),
+            self.weight_d1_e = tf.get_variable('W2_e', shape=(self.dim/2 * self.dim/2 * self.filters_conv, self.filters_dense),
                               initializer=tf.contrib.layers.xavier_initializer())
-            self.weight_out_e = tf.get_variable('W3_e', shape=(8, 4),
+            self.weight_out_e = tf.get_variable('W3_e', shape=(self.filters_dense, self.dim),
                                initializer=tf.contrib.layers.xavier_initializer())
-            self.biases_c1_v = tf.get_variable('B1_v', shape=(4), initializer=tf.zeros_initializer())
-            self.biases_d1_v = tf.get_variable('B2_v', shape=(8), initializer=tf.zeros_initializer())
-            self.biases_out_v = tf.get_variable('B3_v', shape=(4), initializer=tf.zeros_initializer())
+            self.biases_c1_v = tf.get_variable('B1_v', shape=(self.filters_conv), initializer=tf.zeros_initializer())
+            self.biases_d1_v = tf.get_variable('B2_v', shape=(self.filters_dense ), initializer=tf.zeros_initializer())
+            self.biases_out_v = tf.get_variable('B3_v', shape=(self.dim), initializer=tf.zeros_initializer())
 
-            self.biases_c1_e = tf.get_variable('B1_e', shape=(4), initializer=tf.zeros_initializer())
-            self.biases_d1_e = tf.get_variable('B2_e', shape=(8), initializer=tf.zeros_initializer())
-            self.biases_out_e = tf.get_variable('B3_e', shape=(4), initializer=tf.zeros_initializer())
+            self.biases_c1_e = tf.get_variable('B1_e', shape=(self.filters_conv), initializer=tf.zeros_initializer())
+            self.biases_d1_e = tf.get_variable('B2_e', shape=(self.filters_dense ), initializer=tf.zeros_initializer())
+            self.biases_out_e = tf.get_variable('B3_e', shape=(self.dim), initializer=tf.zeros_initializer())
 
         self.vars = [self.weight_c1_v, self.weight_d1_v, self.weight_out_v, self.weight_c1_e, self.weight_d1_e, self.weight_out_e,
                      self.biases_c1_v, self.biases_d1_v, self.biases_out_v, self.biases_c1_e, self.biases_d1_e, self.biases_out_e]
@@ -153,19 +155,17 @@ class CrossCompressUnit(Layer):
     def _call(self, inputs):
         # [batch_size, dim]
         v, e = inputs
-
         # [batch_size, dim, 1], [batch_size, 1, dim]
         v = tf.expand_dims(v, dim=2)
         e = tf.expand_dims(e, dim=1)
-
         # [batch_size, dim, dim]
         c_matrix = tf.matmul(v, e)
         c_matrix = tf.expand_dims(c_matrix, -1) # Our code
+
         # c_matrix_transpose = tf.transpose(c_matrix, perm=[0, 2, 1])
 
         # [batch_size * dim, dim, 1]
         # c_matrix = tf.reshape(c_matrix, [-1, self.dim])
-
 
         ## Our Implementation
         weights_v = [self.weight_c1_v, self.weight_d1_v, self.weight_out_v]
@@ -174,7 +174,7 @@ class CrossCompressUnit(Layer):
         biases_e = [self.biases_c1_e, self.biases_d1_e, self.biases_out_e]
         v_output = conv_net(c_matrix, weights_v, biases_v)
         e_output = conv_net(c_matrix, weights_e, biases_e)
-        print(f"v output : {v_output.shape}")
+
         '''
         ### The paper's Code we want to change.
         c_matrix_transpose = tf.reshape(c_matrix_transpose, [-1, self.dim])
@@ -185,7 +185,6 @@ class CrossCompressUnit(Layer):
         e_output = tf.reshape(tf.matmul(c_matrix, self.weight_ve) + tf.matmul(c_matrix_transpose, self.weight_ee),
                               [-1, self.dim]) + self.bias_e
 
-        print(f"v shape {v_output.shape}, e shape: {e_output.shape}")
         '''
 
         return v_output, e_output
