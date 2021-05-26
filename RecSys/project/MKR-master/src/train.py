@@ -23,6 +23,7 @@ def train(args, data, show_loss, show_topk):
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
+        avg_time = 0
         for step in range(args.n_epochs):
             start_time = time.time()
             # RS training
@@ -46,6 +47,7 @@ def train(args, data, show_loss, show_topk):
 
             # CTR evaluation
             epoch_time = time.time() - start_time
+            avg_time += epoch_time
             train_auc, train_acc = model.eval(sess, get_feed_dict_for_rs(model, train_data, 0, train_data.shape[0]))
             eval_auc, eval_acc = model.eval(sess, get_feed_dict_for_rs(model, eval_data, 0, eval_data.shape[0]))
             test_auc, test_acc = model.eval(sess, get_feed_dict_for_rs(model, test_data, 0, test_data.shape[0]))
@@ -70,7 +72,7 @@ def train(args, data, show_loss, show_topk):
                 for i in f1:
                     print('%.4f\t' % i, end='')
                 print('\n')
-
+        print(f"avg time per epoch : {avg_time/args.n_epochs}")
 
 def get_feed_dict_for_rs(model, data, start, end):
     feed_dict = {model.user_indices: data[start:end, 0],

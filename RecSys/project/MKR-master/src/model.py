@@ -50,7 +50,7 @@ class MKR(object):
         for _ in range(args.L):
             user_mlp = Dense(input_dim=args.dim, output_dim=args.dim)
             tail_mlp = Dense(input_dim=args.dim, output_dim=args.dim)
-            cc_unit = CrossCompressUnit(args.dim)
+            cc_unit = CrossCompressUnit(args.dim, args.conv_layer_filters, args.dense_layer_filters)
             self.user_embeddings = user_mlp(self.user_embeddings)
             self.item_embeddings, self.head_embeddings = cc_unit([self.item_embeddings, self.head_embeddings])
             self.tail_embeddings = tail_mlp(self.tail_embeddings)
