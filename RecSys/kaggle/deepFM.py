@@ -7,6 +7,7 @@ from tensorflow.python.keras.preprocessing.sequence import pad_sequences
 import tensorflow as tf
 import glob
 import numpy as np
+from tqdm import tqdm
 
 delete_coulmns = ["gmt_offset","user_id_hash"]
 features_list = ["target_item_taxonomy"]
@@ -32,7 +33,7 @@ def split(x):
 all_paths = glob.glob(GLOBAL_PATH_TRAIN)
 
 data = pd.DataFrame()
-for path in all_paths[:1]:
+for path in tqdm(all_paths):
     data = data.append(pd.read_csv(path))
 
 test = pd.read_csv(TEST_PATH)
@@ -79,7 +80,8 @@ test_model_input = {name:test[name].values for name in feature_names}
 test_model_input[multi_value[0]] = genres_list[test.index]
 
 target_values = train[target].values
-
+del train
+del test
 model = DeepFM(linear_feature_columns,dnn_feature_columns,task='binary')
 opt = tf.keras.optimizers.Adam(learning_rate=0.01)
 model.compile(loss='binary_crossentropy', optimizer=opt,metrics=['accuracy'])
@@ -87,3 +89,4 @@ model.compile(loss='binary_crossentropy', optimizer=opt,metrics=['accuracy'])
 history = model.fit(train_model_input, target_values,
                     batch_size=256, epochs=10, verbose=2, validation_split=0.2, )
 pred_ans = model.predict(test_model_input, batch_size=256)
+
