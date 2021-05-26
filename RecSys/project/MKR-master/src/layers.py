@@ -116,8 +116,8 @@ class CrossCompressUnit(Layer):
     def __init__(self, dim, name=None):
         super(CrossCompressUnit, self).__init__(name)
         self.dim = dim
-        self.filters_conv = 8 #28
-        self.filters_dense = 16 #16
+        self.filters_conv = 4 #28
+        self.filters_dense = 8 #16
         with tf.variable_scope(self.name):
             self.weight_c1_v = tf.get_variable('W1_v', shape=(2, 2, 1, self.filters_conv), \
                               initializer=tf.contrib.layers.xavier_initializer())

@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from model import MKR
+import time
 
 
 def train(args, data, show_loss, show_topk):
@@ -23,6 +24,7 @@ def train(args, data, show_loss, show_topk):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         for step in range(args.n_epochs):
+            start_time = time.time()
             # RS training
             np.random.shuffle(train_data)
             start = 0
@@ -43,12 +45,14 @@ def train(args, data, show_loss, show_topk):
                         print(rmse)
 
             # CTR evaluation
+            epoch_time = time.time() - start_time
             train_auc, train_acc = model.eval(sess, get_feed_dict_for_rs(model, train_data, 0, train_data.shape[0]))
             eval_auc, eval_acc = model.eval(sess, get_feed_dict_for_rs(model, eval_data, 0, eval_data.shape[0]))
             test_auc, test_acc = model.eval(sess, get_feed_dict_for_rs(model, test_data, 0, test_data.shape[0]))
 
-            print('epoch %d    train auc: %.4f  acc: %.4f    eval auc: %.4f  acc: %.4f    test auc: %.4f  acc: %.4f'
-                  % (step, train_auc, train_acc, eval_auc, eval_acc, test_auc, test_acc))
+
+            print('epoch %d    train auc: %.4f  acc: %.4f    eval auc: %.4f  acc: %.4f    test auc: %.4f  acc: %.4f, time: %.4f'
+                  % (step, train_auc, train_acc, eval_auc, eval_acc, test_auc, test_acc, epoch_time))
 
             # top-K evaluation
             if show_topk:
