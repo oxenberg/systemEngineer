@@ -110,7 +110,7 @@ parser.add_argument('--dense_layer_filters', type=int, default=16, help='dense l
 # music
 parser.add_argument('--dataset', type=str, default='music', help='which dataset to use')
 parser.add_argument('--n_epochs', type=int, default=50, help='the number of epochs')#10
-parser.add_argument('--dim', type=int, default=16, help='dimension of user and entity embeddings')#4
+parser.add_argument('--dim', type=int, default=8, help='dimension of user and entity embeddings')#4
 parser.add_argument('--L', type=int, default=2, help='number of low layers')#2
 parser.add_argument('--H', type=int, default=1, help='number of high layers')#1
 parser.add_argument('--batch_size', type=int, default=256, help='batch size')#256
@@ -118,8 +118,8 @@ parser.add_argument('--l2_weight', type=float, default=1e-6, help='weight of l2 
 parser.add_argument('--lr_rs', type=float, default=0.0009, help='learning rate of RS task') #1e-3
 parser.add_argument('--lr_kge', type=float, default=2e-4, help='learning rate of KGE task')
 parser.add_argument('--kge_interval', type=int, default=2, help='training interval of KGE task')
-parser.add_argument('--conv_layer_filters', type=int, default=28, help='convolutional layer number of filters')
-parser.add_argument('--dense_layer_filters', type=int, default=16, help='dense layer number of filters')
+parser.add_argument('--conv_layer_filters', type=int, default=16, help='convolutional layer number of filters')
+parser.add_argument('--dense_layer_filters', type=int, default=8, help='dense layer number of filters')
 
 show_loss = False
 show_topk = False
