@@ -67,3 +67,6 @@ DeepLearning/Ex3/test_with_midi_vectors
 DeepLearning/Ex3/train_with_images
 DeepLearning/Ex3/train_with_midi_vectors
 DeepLearning/Ex3/utils-old.py
+*.arff
+*.zip
+*.v2
