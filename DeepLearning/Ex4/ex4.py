@@ -10,13 +10,26 @@ import time
 import datetime
 from sklearn.preprocessing import MinMaxScaler
 
+# params = {
+#     "BATCH_SIZE": 128,
+#     "NOISE_DIM": 100,
+#     "EXAMPLES_TO_GENERATE": 100,
+#     "DENSE_DIM" : 16,
+#     "EPOCHS": 500,
+#     "CHECKPOINT_PATH": "~/training_checkpoint/",
+#     "FILES": ["german_credit.arff"],
+#     "BUFFER_SIZE": 1000
+# }
+
+
 params = {
     "BATCH_SIZE": 128,
-    "NOISE_DIM": 100,
+    "NOISE_DIM": 80,
     "EXAMPLES_TO_GENERATE": 100,
-    "EPOCHS": 1,
+    "DENSE_DIM" : 4,
+    "EPOCHS": 1000,
     "CHECKPOINT_PATH": "~/training_checkpoint/",
-    "FILES": ["diabetes.arff"],
+    "FILES": ["german_credit.arff"],
     "BUFFER_SIZE": 1000
 }
 
@@ -27,9 +40,11 @@ train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 gen_train_loss = tf.keras.metrics.Mean('gen_train_loss', dtype=tf.float32)
 disc_train_loss = tf.keras.metrics.Mean('disc_train_loss', dtype=tf.float32)
 
+# generator_optimizer = Adam(1e-4)
+# discriminator_optimizer = Adam(1e-4)
 
-generator_optimizer = Adam(1e-4)
-discriminator_optimizer = Adam(1e-4)
+generator_optimizer = Adam(0.0007)
+discriminator_optimizer = Adam(0.0007)
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 
@@ -39,22 +54,42 @@ def read_data(path):
     return data
 
 
+# def build_generator_model(batch_size, input_shape, dense_dim, output_dim):
+#     input = Input(shape=input_shape, batch_size=batch_size)
+#     x = Dense(dense_dim, activation='relu')(input)
+#     x = Dense(dense_dim * 2, activation='relu')(x)
+#     x = Dense(dense_dim * 4, activation='relu')(x)
+#     x = Dense(output_dim)(x)
+#     model = Model(inputs=input, outputs=x)
+#     return model
+
 def build_generator_model(batch_size, input_shape, dense_dim, output_dim):
     input = Input(shape=input_shape, batch_size=batch_size)
     x = Dense(dense_dim, activation='relu')(input)
     x = Dense(dense_dim * 2, activation='relu')(x)
-    x = Dense(dense_dim * 4, activation='relu')(x)
+    # x = Dense(dense_dim * 4, activation='relu')(x)
     x = Dense(output_dim)(x)
     model = Model(inputs=input, outputs=x)
     return model
 
 
+# def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
+#     input = Input(shape=input_shape, batch_size=batch_size)
+#     x = Dense(dense_dim * 4, activation='relu')(input)
+#     x = Dropout(0.1)(x)
+#     x = Dense(dense_dim * 2, activation='relu')(x)
+#     x = Dropout(0.1)(x)
+#     x = Dense(dense_dim, activation='relu')(x)
+#     x = Dense(output_shape, activation='sigmoid')(x)
+#     model = Model(inputs=input, outputs=x)
+#     return model
+
 def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
     input = Input(shape=input_shape, batch_size=batch_size)
-    x = Dense(dense_dim * 4, activation='relu')(input)
-    x = Dropout(0.1)(x)
-    x = Dense(dense_dim * 2, activation='relu')(x)
-    x = Dropout(0.1)(x)
+    # x = Dense(dense_dim * 4, activation='relu')(input)
+    # x = Dropout(0.1)(x)
+    x = Dense(dense_dim * 2, activation='relu')(input)
+    # x = Dropout(0.1)(x)
     x = Dense(dense_dim, activation='relu')(x)
     x = Dense(output_shape, activation='sigmoid')(x)
     model = Model(inputs=input, outputs=x)
@@ -72,7 +107,7 @@ def discriminator_loss(real_output, fake_output):
     return total_loss
 
 
-#TODO do we need to generate the predictions here?
+# TODO do we need to generate the predictions here?
 def train_model(data, generator, discriminator, checkpoint, test_noise):
     for epoch in tqdm(range(params["EPOCHS"])):
         start = time.time()
@@ -87,7 +122,7 @@ def train_model(data, generator, discriminator, checkpoint, test_noise):
         # # Save the model every epoch
         # checkpoint.save(file_prefix=params["CHECKPOINT_PATH"])
 
-        print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
+        # print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
         gen_train_loss.reset_states()
         disc_train_loss.reset_states()
         # Generate after the final epoch
@@ -114,7 +149,7 @@ def step(samples, generator, discriminator):
     gen_train_loss(gen_loss)
     disc_train_loss(disc_loss)
 
-    tf.print("discriminator loss:", disc_loss, ",generator loss:", gen_loss)
+    # tf.print("discriminator loss:", disc_loss, ",generator loss:", gen_loss)
     gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
     # disc_tape.watch(disc_loss)
@@ -126,30 +161,46 @@ def run_GAN(data, num_features):
     output_dim = num_features
     test_noise = tf.random.normal([params["EXAMPLES_TO_GENERATE"], params["NOISE_DIM"]])
     # TODO - change dense dim
-    generator = build_generator_model(params["BATCH_SIZE"], params["NOISE_DIM"], 16, output_dim)
-    discriminator = build_discriminator_model(params["BATCH_SIZE"], output_dim, 16)
+    generator = build_generator_model(params["BATCH_SIZE"], params["NOISE_DIM"], params["DENSE_DIM"], output_dim)
+    discriminator = build_discriminator_model(params["BATCH_SIZE"], output_dim, params["DENSE_DIM"])
     checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
                                      discriminator_optimizer=discriminator_optimizer,
                                      generator=generator,
                                      discriminator=discriminator)
-    train_model(data,  generator, discriminator, checkpoint, test_noise)
+    train_model(data, generator, discriminator, checkpoint, test_noise)
 
-    analyze_model(generator, discriminator, test_noise)
+    analyze_model(generator, discriminator, test_noise, data, num_features)
 
 
-def analyze_model(generator, discriminator, test_noise):
+def analyze_model(generator, discriminator, test_noise, data, num_features):
     samples = generate_samples(generator, test_noise)
     predictions = tf.round(discriminator(samples, training=False))
-    passed_as_real = predictions[np.where(predictions == 1)]
-    passed_as_fake = predictions[np.where(predictions == 0)]
+    passed_as_real = np.array(samples)[np.where(predictions == 1)[0]]
+    passed_as_fake = np.array(samples)[np.where(predictions == 0)[0]]
     print(f"{len(passed_as_real)} samples from 100 passed as real samples")
-    analyse_passed_as_real(passed_as_real, passed_as_fake)
+    analyse_passed_as_real(passed_as_real, passed_as_fake, data, num_features)
     return predictions
 
 
 # TODO: need to create a graph like https://github.com/ydataai/ydata-synthetic/blob/master/examples/regular/gan_example.ipynb
 # TODO: with real data points and fake data points
-def analyse_passed_as_real(passed_as_real, passed_as_fake):
+def analyse_passed_as_real(passed_as_real, passed_as_fake, data, num_features):
+    columns_index = [0, 1]
+    df = tfds.as_dataframe(data.unbatch())
+    df = pd.DataFrame(df[""].to_list(), columns=list(np.arange(num_features)))  # columns list to multi columns
+    df_to_plot = df.loc[:, columns_index]
+
+    plt.scatter(df[columns_index[0]].values, df[columns_index[1]].values, marker='^', label="real sample")
+    plt.scatter(passed_as_real[:, columns_index[0]], passed_as_real[:, columns_index[1]], marker='o',
+                label="pass as real")
+    plt.scatter(passed_as_fake[:, columns_index[0]], passed_as_fake[:, columns_index[1]], marker='o',
+                label="pass as fake")
+    plt.xlabel(str(columns_index[0]))
+    plt.ylabel(str(columns_index[1]))
+    plt.legend(loc='upper left')
+    plt.show()
+
+    return
 
 
 
@@ -174,9 +225,15 @@ def prepare_data(file_path):
     return dataset, len(features)
 
 
+
 def main():
     for file in params["FILES"]:
-        data, num_features = prepare_data(file)
+
+        if file == "german_credit.arff":
+            data, num_features = preprocess_german_df(file)
+        else:
+            data, num_features = prepare_data(file)
+
 
         run_GAN(data, num_features)
 
