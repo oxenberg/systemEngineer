@@ -8,7 +8,9 @@ from tqdm import tqdm
 import numpy as np
 import time
 import datetime
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+import tensorflow_datasets as tfds
+import matplotlib.pyplot as plt
 
 # params = {
 #     "BATCH_SIZE": 128,
@@ -203,18 +205,25 @@ def analyse_passed_as_real(passed_as_real, passed_as_fake, data, num_features):
     return
 
 
-
 def normalize_data(data, features):
-    min_max = MinMaxScaler()
+    min_max = MinMaxScaler(feature_range=(-1,1))
     x = data[features].values  # returns a numpy array
     x_scaled = min_max.fit_transform(x)
     data[features] = pd.DataFrame(x_scaled)
     return data
 
 
+def normalize_categorial_data(data, features):
+    label_encoder = LabelEncoder()
+    data[features] = data[features].apply(label_encoder.fit_transform)
+    data[features] = normalize_data(data[features], features)
+
+    return data
+
+
 def prepare_data(file_path):
     df = read_data(file_path)
-    df["class"] = df["class"].apply(lambda x: 1 if x=="b'tested_negative'" else 0)
+    df["class"] = df["class"].apply(lambda x: 0 if x == str.encode("tested_negative") else 1)
     columns = list(df.columns)
     features = columns[:-1]
     target = columns[-1]
@@ -224,6 +233,22 @@ def prepare_data(file_path):
     dataset = dataset.shuffle(params["BUFFER_SIZE"]).batch(params["BATCH_SIZE"])
     return dataset, len(features)
 
+
+def preprocess_german_df(file_path):
+    df = read_data(file_path)
+    df = df.iloc[:, :-1]
+    columns = list(df.columns)
+    numerical_features  = [2, 5, 8, 11, 13, 18]
+    categorial_features = list(set(np.arange(1,len(columns)+1)) - set(numerical_features))
+    numerical_features = list(map(str,numerical_features))
+    categorial_features = list(map(str,categorial_features))
+    df = normalize_data(df, numerical_features)
+    df = normalize_categorial_data(df, categorial_features)
+
+    dataset = (tf.data.Dataset.from_tensor_slices(
+        (tf.cast(df[numerical_features+categorial_features].values, tf.float32))))
+    dataset = dataset.shuffle(params["BUFFER_SIZE"]).batch(params["BATCH_SIZE"])
+    return dataset, len(columns)
 
 
 def main():
