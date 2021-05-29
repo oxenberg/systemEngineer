@@ -12,28 +12,35 @@ from sklearn.preprocessing import MinMaxScaler, LabelEncoder
 import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
 
+# params diabetes
+params = {
+    "BATCH_SIZE": 128,
+    "NOISE_DIM": 100,
+    "EXAMPLES_TO_GENERATE": 100,
+    "DENSE_DIM" : 16,
+    "EPOCHS": 2000,
+    "CHECKPOINT_PATH": "~/training_checkpoint/",
+    "FILES": ["diabetes.arff"],
+    "BUFFER_SIZE": 1000
+}
+
+generator_optimizer = Adam(1e-4)
+discriminator_optimizer = Adam(1e-4)
+
+# params german
 # params = {
-#     "BATCH_SIZE": 128,
+#     "BATCH_SIZE": 64,
 #     "NOISE_DIM": 100,
 #     "EXAMPLES_TO_GENERATE": 100,
-#     "DENSE_DIM" : 16,
-#     "EPOCHS": 500,
+#     "DENSE_DIM" : 8,
+#     "EPOCHS": 400,
 #     "CHECKPOINT_PATH": "~/training_checkpoint/",
 #     "FILES": ["german_credit.arff"],
 #     "BUFFER_SIZE": 1000
 # }
-
-
-params = {
-    "BATCH_SIZE": 128,
-    "NOISE_DIM": 80,
-    "EXAMPLES_TO_GENERATE": 100,
-    "DENSE_DIM" : 4,
-    "EPOCHS": 1000,
-    "CHECKPOINT_PATH": "~/training_checkpoint/",
-    "FILES": ["german_credit.arff"],
-    "BUFFER_SIZE": 1000
-}
+#
+# generator_optimizer = Adam(0.00009)
+# discriminator_optimizer = Adam(0.00009)
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -42,11 +49,9 @@ train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 gen_train_loss = tf.keras.metrics.Mean('gen_train_loss', dtype=tf.float32)
 disc_train_loss = tf.keras.metrics.Mean('disc_train_loss', dtype=tf.float32)
 
-# generator_optimizer = Adam(1e-4)
-# discriminator_optimizer = Adam(1e-4)
 
-generator_optimizer = Adam(0.0007)
-discriminator_optimizer = Adam(0.0007)
+
+
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 
@@ -56,46 +61,48 @@ def read_data(path):
     return data
 
 
-# def build_generator_model(batch_size, input_shape, dense_dim, output_dim):
-#     input = Input(shape=input_shape, batch_size=batch_size)
-#     x = Dense(dense_dim, activation='relu')(input)
-#     x = Dense(dense_dim * 2, activation='relu')(x)
-#     x = Dense(dense_dim * 4, activation='relu')(x)
-#     x = Dense(output_dim)(x)
-#     model = Model(inputs=input, outputs=x)
-#     return model
-
+# network diabetes
 def build_generator_model(batch_size, input_shape, dense_dim, output_dim):
     input = Input(shape=input_shape, batch_size=batch_size)
     x = Dense(dense_dim, activation='relu')(input)
     x = Dense(dense_dim * 2, activation='relu')(x)
-    # x = Dense(dense_dim * 4, activation='relu')(x)
+    x = Dense(dense_dim * 4, activation='relu')(x)
     x = Dense(output_dim)(x)
     model = Model(inputs=input, outputs=x)
     return model
 
-
-# def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
-#     input = Input(shape=input_shape, batch_size=batch_size)
-#     x = Dense(dense_dim * 4, activation='relu')(input)
-#     x = Dropout(0.1)(x)
-#     x = Dense(dense_dim * 2, activation='relu')(x)
-#     x = Dropout(0.1)(x)
-#     x = Dense(dense_dim, activation='relu')(x)
-#     x = Dense(output_shape, activation='sigmoid')(x)
-#     model = Model(inputs=input, outputs=x)
-#     return model
-
 def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
     input = Input(shape=input_shape, batch_size=batch_size)
-    # x = Dense(dense_dim * 4, activation='relu')(input)
-    # x = Dropout(0.1)(x)
-    x = Dense(dense_dim * 2, activation='relu')(input)
-    # x = Dropout(0.1)(x)
+    x = Dense(dense_dim * 4, activation='relu')(input)
+    x = Dropout(0.1)(x)
+    x = Dense(dense_dim * 2, activation='relu')(x)
+    x = Dropout(0.1)(x)
     x = Dense(dense_dim, activation='relu')(x)
     x = Dense(output_shape, activation='sigmoid')(x)
     model = Model(inputs=input, outputs=x)
     return model
+
+
+# network german
+# def build_generator_model(batch_size, input_shape, dense_dim, output_dim):
+#     input = Input(shape=input_shape, batch_size=batch_size)
+#     x = Dense(dense_dim, activation='relu')(input)
+#     x = Dense(dense_dim * 2, activation='relu')(x)
+#     # x = Dense(dense_dim * 4, activation='relu')(x)
+#     x = Dense(output_dim)(x)
+#     model = Model(inputs=input, outputs=x)
+#     return model
+#
+# def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
+#     input = Input(shape=input_shape, batch_size=batch_size)
+#     # x = Dense(dense_dim * 4, activation='relu')(input)
+#     # x = Dropout(0.1)(x)
+#     x = Dense(dense_dim * 2, activation='relu')(input)
+#     # x = Dropout(0.1)(x)
+#     x = Dense(dense_dim, activation='relu')(x)
+#     x = Dense(output_shape, activation='sigmoid')(x)
+#     model = Model(inputs=input, outputs=x)
+#     return model
 
 
 def generator_loss(fake_output):
@@ -120,7 +127,6 @@ def train_model(data, generator, discriminator, checkpoint, test_noise):
             tf.summary.scalar('gen_loss', gen_train_loss.result(), step=epoch)
             tf.summary.scalar('disc_loss', disc_train_loss.result(), step=epoch)
 
-        generate_samples(generator, test_noise)
         # # Save the model every epoch
         # checkpoint.save(file_prefix=params["CHECKPOINT_PATH"])
 
@@ -179,7 +185,9 @@ def analyze_model(generator, discriminator, test_noise, data, num_features):
     predictions = tf.round(discriminator(samples, training=False))
     passed_as_real = np.array(samples)[np.where(predictions == 1)[0]]
     passed_as_fake = np.array(samples)[np.where(predictions == 0)[0]]
-    print(f"{len(passed_as_real)} samples from 100 passed as real samples")
+    print(f"passed_as_real : {passed_as_real}")
+    print(f"passed_as_fake : {passed_as_fake}")
+    print(f"\n\n{len(passed_as_real)} samples from 100 passed as real samples")
     analyse_passed_as_real(passed_as_real, passed_as_fake, data, num_features)
     return predictions
 
