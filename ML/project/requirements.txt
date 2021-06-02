@@ -145,7 +145,7 @@ tqdm @ file:///home/conda/feedstock_root/build_artifacts/tqdm_1593390011681/work
 traitlets==4.3.3
 typedecorator==0.0.5
 ujson==1.35
-urllib3==1.25.9
+urllib3==1.26.5
 variant-spark==0.2.0
 watchdog @ file:///C:/ci/watchdog_1593446515400/work
 wcwidth @ file:///tmp/build/80754af9/wcwidth_1593447189090/work
