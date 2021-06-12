@@ -176,8 +176,8 @@ def step(samples, generator, discriminator, blackOrWhiteBox,C):
         sample_real, y_real, c_real = zip(*real_output)
         sample_fake, c_fake, y_fake = list(zip(*fake_output))
 
-        real_output = discriminator([sample_real, tf.convert_to_tensor(y_real), tf.convert_to_tensor(c_real)], training=True)
-        fake_output = discriminator([sample_fake, tf.convert_to_tensor(c_fake), tf.convert_to_tensor(y_fake)], training=True)
+        real_output = discriminator([tf.convert_to_tensor(sample_real), tf.convert_to_tensor(y_real), tf.convert_to_tensor(c_real)], training=True)
+        fake_output = discriminator([tf.convert_to_tensor(sample_fake), tf.convert_to_tensor(c_fake), tf.convert_to_tensor(y_fake)], training=True)
 
 
         # real_output = discriminator(generated_sample, training = True)
