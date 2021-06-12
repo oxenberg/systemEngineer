@@ -191,7 +191,6 @@ def step(samples, generator, discriminator, blackOrWhiteBox,C):
 
     # tf.print("discriminator loss:", disc_loss, ",generator loss:", gen_loss)
     gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
-    print(gradients_of_generator)
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
     # disc_tape.watch(disc_loss)
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
