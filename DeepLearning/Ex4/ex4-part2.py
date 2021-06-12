@@ -1,7 +1,9 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Dense, Dropout
+from tensorflow.keras.layers import Input, Dense, Dropout, Concatenate
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
+# import tensorflow_decision_forests as tfdf
+
 from scipy.io import arff
 import pandas as pd
 from tqdm import tqdm
@@ -13,6 +15,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
+
+
 
 params = {
     "BATCH_SIZE": 128,
@@ -64,7 +68,11 @@ def prepare_data(file_path):
     columns = list(df.columns)
     features = columns[:-1]
     df = normalize_data(df, features)
-    return df
+    dataset = (tf.data.Dataset.from_tensor_slices(
+        (tf.cast(df[features].values, tf.float32))))
+    dataset = dataset.shuffle(params["BUFFER_SIZE"]).batch(params["BATCH_SIZE"])
+
+    return df, dataset
 
 def preprocess_german_df(file_path):
     df = read_data(file_path)
@@ -75,8 +83,11 @@ def preprocess_german_df(file_path):
     categorial_features = list(map(str,categorial_features))
     df = normalize_data(df, numerical_features)
     df = normalize_categorial_data(df, categorial_features)
-    return df
 
+    dataset = (tf.data.Dataset.from_tensor_slices(
+        (tf.cast(df[numerical_features+categorial_features].values, tf.float32))))
+    dataset = dataset.shuffle(params["BUFFER_SIZE"]).batch(params["BATCH_SIZE"])
+    return df, dataset
 
 def train_random_forest(data):
     X = data.iloc[:, :-1]
@@ -85,6 +96,7 @@ def train_random_forest(data):
     clf = RandomForestClassifier(max_depth=params["MAX_DEPTH"], random_state=0)
     clf.fit(X_train, y_train)
     check_clf_performance(clf, X_test, y_test)
+    return clf
 
 def check_clf_performance(clf, X_test, y_test):
     score = clf.score(X_test, y_test)
@@ -97,10 +109,127 @@ def check_clf_performance(clf, X_test, y_test):
     plt.show()
 
 
+def build_generator_model(batch_size, input_shape_noise, dense_dim, output_dim):
+    input1 = Input(shape=input_shape_noise, batch_size=batch_size)
+    input2 = Input(shape = 1, batch_size=batch_size)
+
+    merged = Concatenate(axis=1)([input1, input2])
+    x = Dense(dense_dim, activation='relu')(merged)
+    x = Dense(dense_dim * 2, activation='relu')(x)
+    x = Dense(dense_dim * 4, activation='relu')(x)
+    x = Dense(output_dim)(x)
+    model = Model(inputs=[input1,input2], outputs=x)
+    return model
+
+def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
+    input = Input(shape=input_shape, batch_size=batch_size)
+    inputC = Input(shape=(1,), batch_size=batch_size)
+    inputY = Input(shape=(1,), batch_size=batch_size)
+    merged = Concatenate(axis=1)([input, inputC,inputY])
+
+    x = Dense(dense_dim * 4, activation='relu')(merged)
+    x = Dropout(0.1)(x)
+    x = Dense(dense_dim * 2, activation='relu')(x)
+    x = Dropout(0.1)(x)
+    x = Dense(dense_dim, activation='relu')(x)
+    x = Dense(output_shape, activation='sigmoid')(x)
+    model = Model(inputs=[input, inputC, inputY], outputs=x)
+    return model
+
+def generator_loss(fake_output):
+    return cross_entropy(tf.ones_like(fake_output), fake_output)
+
+
+def discriminator_loss(real_output, fake_output):
+    real_loss = cross_entropy(tf.ones_like(real_output), real_output)
+    fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
+    total_loss = real_loss + fake_loss
+    return total_loss
+
+
+@tf.function
+def step(samples, generator, discriminator, blackOrWhiteBox,C):
+    noise = tf.random.normal([params["BATCH_SIZE"], params["NOISE_DIM"]])
+    with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        generated_sample = generator([noise, C], training=True)
+        y = blackOrWhiteBox.predict_proba(generated_sample)[:,1] # get the proba of y =1
+
+
+        real_output = []
+        fake_output = []
+        indexes = np.random.choice(params["BATCH_SIZE"], int(params["BATCH_SIZE"] / 2))
+        for index in range(params["BATCH_SIZE"]):
+
+            if index in indexes:
+                sample_tuple = (generated_sample[index], y[index], C[index])
+                real_output.append(sample_tuple)
+            else:
+                sample_tuple = (generated_sample[index], C[index], y[index])
+                fake_output.append(sample_tuple)
+
+        sample_real, y_real, c_real = zip(*real_output)
+        sample_fake, c_fake, y_fake = list(zip(*fake_output))
+
+        real_output = discriminator([np.array(sample_real), np.array(y_real), np.array(c_real)], training=True)
+        fake_output = discriminator([np.array(sample_fake), np.array(c_fake), np.array(y_fake)], training=True)
+
+        gen_loss = generator_loss(fake_output)
+        disc_loss = discriminator_loss(real_output, fake_output)
+
+    gen_train_loss(gen_loss)
+    disc_train_loss(disc_loss)
+
+    # tf.print("discriminator loss:", disc_loss, ",generator loss:", gen_loss)
+    gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
+    gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+    # disc_tape.watch(disc_loss)
+    generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
+    discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+
+
+def train_model(data, generator, discriminator, checkpoint, test_noise, blackOrWhiteBox):
+    for epoch in tqdm(range(params["EPOCHS"])):
+        start = time.time()
+
+        for batch in data:
+            C = np.random.rand(1,params["BATCH_SIZE"]).T
+            step(batch, generator, discriminator, blackOrWhiteBox, C)
+        with train_summary_writer.as_default():
+            tf.summary.scalar('gen_loss', gen_train_loss.result(), step=epoch)
+            tf.summary.scalar('disc_loss', disc_train_loss.result(), step=epoch)
+
+        # # Save the model every epoch
+        # checkpoint.save(file_prefix=params["CHECKPOINT_PATH"])
+
+        # print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
+        gen_train_loss.reset_states()
+        disc_train_loss.reset_states()
+        # Generate after the final epoch
+    generate_samples(generator, test_noise)
+
+def run_GAN(data, num_features,blackOrWhiteBox):
+    output_dim = num_features
+    test_noise = tf.random.normal([params["EXAMPLES_TO_GENERATE"], params["NOISE_DIM"]])
+    # TODO - change dense dim
+    generator = build_generator_model(params["BATCH_SIZE"], params["NOISE_DIM"], params["DENSE_DIM"], output_dim)
+    discriminator = build_discriminator_model(params["BATCH_SIZE"], output_dim, params["DENSE_DIM"])
+    checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
+                                     discriminator_optimizer=discriminator_optimizer,
+                                     generator=generator,
+                                     discriminator=discriminator)
+    train_model(data, generator, discriminator, checkpoint, test_noise,blackOrWhiteBox)
+
+    analyze_model(generator, discriminator, test_noise, data, num_features)
+
+
 
 
 
 def main():
+
+    print("VERSION TF" + tf.__version__)
+    print("VERSION NP" + np.__version__)
+
     for file in params["FILES"]:
 
         if file == "german_credit.arff":
@@ -108,8 +237,10 @@ def main():
         else:
             data = prepare_data(file)
 
-        train_random_forest(data)
-        # run_GAN(data, num_features)
+        blackOrWhiteBox = train_random_forest(data)
+
+        columns_len = data.shape[1] - 1
+        run_GAN(dataset, columns_len,blackOrWhiteBox)
 
 
 
