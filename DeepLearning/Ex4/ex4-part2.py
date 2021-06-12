@@ -16,7 +16,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
 
-
+tf.compat.v1.enable_eager_execution()
 
 params = {
     "BATCH_SIZE": 128,
@@ -147,13 +147,12 @@ def discriminator_loss(real_output, fake_output):
     return total_loss
 
 
-@tf.function
+# @tf.function
 def step(samples, generator, discriminator, blackOrWhiteBox,C):
     noise = tf.random.normal([params["BATCH_SIZE"], params["NOISE_DIM"]])
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
         generated_sample = generator([noise, C], training=True)
-        y = blackOrWhiteBox.predict_proba(generated_sample)[:,1] # get the proba of y =1
-
+        y = blackOrWhiteBox.predict_proba(np.array(generated_sample))[:, 1]  # get the proba of y =1
 
         real_output = []
         fake_output = []
@@ -170,8 +169,8 @@ def step(samples, generator, discriminator, blackOrWhiteBox,C):
         sample_real, y_real, c_real = zip(*real_output)
         sample_fake, c_fake, y_fake = list(zip(*fake_output))
 
-        real_output = discriminator([np.array(sample_real), np.array(y_real), np.array(c_real)], training=True)
-        fake_output = discriminator([np.array(sample_fake), np.array(c_fake), np.array(y_fake)], training=True)
+        real_output = discriminator([tf.convert_to_tensor(sample_real),tf.convert_to_tensor(y_real), tf.convert_to_tensor(c_real)], training=True)
+        fake_output = discriminator([tf.convert_to_tensor(sample_fake), tf.convert_to_tensor(c_fake), tf.convert_to_tensor(y_fake)], training=True)
 
         gen_loss = generator_loss(fake_output)
         disc_loss = discriminator_loss(real_output, fake_output)
@@ -181,6 +180,7 @@ def step(samples, generator, discriminator, blackOrWhiteBox,C):
 
     # tf.print("discriminator loss:", disc_loss, ",generator loss:", gen_loss)
     gradients_of_generator = gen_tape.gradient(gen_loss, generator.trainable_variables)
+    print(gradients_of_generator)
     gradients_of_discriminator = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
     # disc_tape.watch(disc_loss)
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))

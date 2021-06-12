@@ -142,7 +142,7 @@ def generate_samples(model, test_input):
     return predictions
 
 
-@tf.function
+# @tf.function
 def step(samples, generator, discriminator):
     noise = tf.random.normal([params["BATCH_SIZE"], params["NOISE_DIM"]])
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
