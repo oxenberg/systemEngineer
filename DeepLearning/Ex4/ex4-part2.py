@@ -233,9 +233,9 @@ def main():
     for file in params["FILES"]:
 
         if file == "german_credit.arff":
-            data = preprocess_german_df(file)
+            data, dataset = preprocess_german_df(file)
         else:
-            data = prepare_data(file)
+            data, dataset = prepare_data(file)
 
         blackOrWhiteBox = train_random_forest(data)
 
