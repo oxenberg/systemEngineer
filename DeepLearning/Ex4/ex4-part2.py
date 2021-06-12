@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Dense, Dropout, Concatenate
+from tensorflow.keras.layers import Input, Dense, Dropout, concatenate
 from tensorflow.keras import Model
 from tensorflow.keras.optimizers import Adam
 # import tensorflow_decision_forests as tfdf
@@ -16,7 +16,9 @@ from sklearn.model_selection import train_test_split
 import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
 
-tf.compat.v1.enable_eager_execution()
+
+tf.executing_eagerly()
+
 
 params = {
     "BATCH_SIZE": 128,
@@ -113,8 +115,9 @@ def build_generator_model(batch_size, input_shape_noise, dense_dim, output_dim):
     input1 = Input(shape=input_shape_noise, batch_size=batch_size)
     input2 = Input(shape = 1, batch_size=batch_size)
 
-    merged = Concatenate(axis=1)([input1, input2])
-    x = Dense(dense_dim, activation='relu')(merged)
+    x = concatenate([input1, input2])
+
+    x = Dense(dense_dim, activation='relu')(x)
     x = Dense(dense_dim * 2, activation='relu')(x)
     x = Dense(dense_dim * 4, activation='relu')(x)
     x = Dense(output_dim)(x)
@@ -125,15 +128,16 @@ def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1
     input = Input(shape=input_shape, batch_size=batch_size)
     inputC = Input(shape=(1,), batch_size=batch_size)
     inputY = Input(shape=(1,), batch_size=batch_size)
-    merged = Concatenate(axis=1)([input, inputC,inputY])
 
-    x = Dense(dense_dim * 4, activation='relu')(merged)
+    x = concatenate([input, inputC,inputY])
+
+    x = Dense(dense_dim * 4, activation='relu')(x)
     x = Dropout(0.1)(x)
     x = Dense(dense_dim * 2, activation='relu')(x)
     x = Dropout(0.1)(x)
     x = Dense(dense_dim, activation='relu')(x)
     x = Dense(output_shape, activation='sigmoid')(x)
-    model = Model(inputs=[input, inputC, inputY], outputs=x)
+    model = Model(inputs=[input,inputC,inputY], outputs=x)
     return model
 
 def generator_loss(fake_output):
@@ -147,10 +151,12 @@ def discriminator_loss(real_output, fake_output):
     return total_loss
 
 
-# @tf.function
+
 def step(samples, generator, discriminator, blackOrWhiteBox,C):
     noise = tf.random.normal([params["BATCH_SIZE"], params["NOISE_DIM"]])
+
     with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+
         generated_sample = generator([noise, C], training=True)
         y = blackOrWhiteBox.predict_proba(np.array(generated_sample))[:, 1]  # get the proba of y =1
 
@@ -169,9 +175,14 @@ def step(samples, generator, discriminator, blackOrWhiteBox,C):
         sample_real, y_real, c_real = zip(*real_output)
         sample_fake, c_fake, y_fake = list(zip(*fake_output))
 
-        real_output = discriminator([tf.convert_to_tensor(sample_real),tf.convert_to_tensor(y_real), tf.convert_to_tensor(c_real)], training=True)
+
+        real_output = discriminator([tf.convert_to_tensor(sample_real), tf.convert_to_tensor(y_real), tf.convert_to_tensor(c_real)], training=True)
         fake_output = discriminator([tf.convert_to_tensor(sample_fake), tf.convert_to_tensor(c_fake), tf.convert_to_tensor(y_fake)], training=True)
 
+
+
+        # real_output = discriminator(generated_sample, training = True)
+        # fake_output = discriminator(generated_sample, training=True)
         gen_loss = generator_loss(fake_output)
         disc_loss = discriminator_loss(real_output, fake_output)
 
@@ -205,7 +216,7 @@ def train_model(data, generator, discriminator, checkpoint, test_noise, blackOrW
         gen_train_loss.reset_states()
         disc_train_loss.reset_states()
         # Generate after the final epoch
-    generate_samples(generator, test_noise)
+    # generate_samples(generator, test_noise)
 
 def run_GAN(data, num_features,blackOrWhiteBox):
     output_dim = num_features
@@ -219,7 +230,7 @@ def run_GAN(data, num_features,blackOrWhiteBox):
                                      discriminator=discriminator)
     train_model(data, generator, discriminator, checkpoint, test_noise,blackOrWhiteBox)
 
-    analyze_model(generator, discriminator, test_noise, data, num_features)
+    # analyze_model(generator, discriminator, test_noise, data, num_features)
 
 
 
