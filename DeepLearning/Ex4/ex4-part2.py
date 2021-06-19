@@ -37,14 +37,14 @@ tf.executing_eagerly()
 
 # params diabetes
 params = {
-    "BATCH_SIZE": 128,
+    "BATCH_SIZE": 64,
     "NOISE_DIM": 100,
     "EXAMPLES_TO_GENERATE": 1000,
-    "DENSE_DIM" : 64,
-    "MAX_DEPTH": 3,
-    "EPOCHS": 1700,
+    "DENSE_DIM" : 8,
+    "MAX_DEPTH": 5,
+    "EPOCHS": 600,
     "CHECKPOINT_PATH": "~/training_checkpoint/",
-    "FILES": ["diabetes.arff"],
+    "FILES": ["german_credit.arff"],
     "BUFFER_SIZE": 1000
 }
 
@@ -136,7 +136,7 @@ def build_generator_model(batch_size, input_shape_noise, dense_dim, output_dim):
     x = concatenate([input1, input2])
 
     x = Dense(dense_dim, activation='relu')(x)
-    # x = Dense(dense_dim * 2, activation='relu')(x)
+    x = Dense(dense_dim * 2, activation='relu')(x)
     x = Dense(dense_dim * 4, activation='relu')(x)
     x = Dense(output_dim)(x)
     model = Model(inputs=[input1,input2], outputs=x)
@@ -150,9 +150,9 @@ def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1
     x = concatenate([input, inputC,inputY])
 
     x = Dense(dense_dim * 4, activation='relu')(x)
-    x = Dropout(0.1)(x)
-    # x = Dense(dense_dim * 2, activation='relu')(x)
-    # x = Dropout(0.1)(x)
+    x = Dropout(0.2)(x)
+    x = Dense(dense_dim * 2, activation='relu')(x)
+    x = Dropout(0.2)(x)
     x = Dense(dense_dim, activation='relu')(x)
     x = Dense(output_shape, activation='sigmoid')(x)
     model = Model(inputs=[input,inputC,inputY], outputs=x)
