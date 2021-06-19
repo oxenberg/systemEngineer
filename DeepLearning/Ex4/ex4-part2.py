@@ -15,22 +15,42 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import tensorflow_datasets as tfds
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 tf.executing_eagerly()
 
+# params german
+# params = {
+#     "BATCH_SIZE": 64,
+#     "NOISE_DIM": 100,
+#     "EXAMPLES_TO_GENERATE": 1000,
+#     "DENSE_DIM" : 32,
+#     "EPOCHS": 600,
+#     "MAX_DEPTH": 5, # 3 for diabetes
+#     "CHECKPOINT_PATH": "~/training_checkpoint/",
+#     "FILES": ["german_credit.arff"],
+#     "BUFFER_SIZE": 1000
+# }
+# generator_optimizer = Adam(0.0005)
+# discriminator_optimizer = Adam(0.0005)
 
+# params diabetes
 params = {
     "BATCH_SIZE": 128,
     "NOISE_DIM": 100,
-    "EXAMPLES_TO_GENERATE": 100,
-    "DENSE_DIM" : 32,
-    "EPOCHS": 500,
-    "MAX_DEPTH": 5, # 3 for diabetes
+    "EXAMPLES_TO_GENERATE": 1000,
+    "DENSE_DIM" : 64,
+    "MAX_DEPTH": 3,
+    "EPOCHS": 1700,
     "CHECKPOINT_PATH": "~/training_checkpoint/",
-    "FILES": ["german_credit.arff"],
+    "FILES": ["diabetes.arff"],
     "BUFFER_SIZE": 1000
 }
+
+generator_optimizer = Adam(1e-4)
+discriminator_optimizer = Adam(1e-4)
+
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -39,8 +59,6 @@ train_summary_writer = tf.summary.create_file_writer(train_log_dir)
 gen_train_loss = tf.keras.metrics.Mean('gen_train_loss', dtype=tf.float32)
 disc_train_loss = tf.keras.metrics.Mean('disc_train_loss', dtype=tf.float32)
 
-generator_optimizer = Adam(1e-4)
-discriminator_optimizer = Adam(1e-4)
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 def normalize_data(data, features):
@@ -118,7 +136,7 @@ def build_generator_model(batch_size, input_shape_noise, dense_dim, output_dim):
     x = concatenate([input1, input2])
 
     x = Dense(dense_dim, activation='relu')(x)
-    x = Dense(dense_dim * 2, activation='relu')(x)
+    # x = Dense(dense_dim * 2, activation='relu')(x)
     x = Dense(dense_dim * 4, activation='relu')(x)
     x = Dense(output_dim)(x)
     model = Model(inputs=[input1,input2], outputs=x)
@@ -133,8 +151,8 @@ def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1
 
     x = Dense(dense_dim * 4, activation='relu')(x)
     x = Dropout(0.1)(x)
-    x = Dense(dense_dim * 2, activation='relu')(x)
-    x = Dropout(0.1)(x)
+    # x = Dense(dense_dim * 2, activation='relu')(x)
+    # x = Dropout(0.1)(x)
     x = Dense(dense_dim, activation='relu')(x)
     x = Dense(output_shape, activation='sigmoid')(x)
     model = Model(inputs=[input,inputC,inputY], outputs=x)
@@ -217,6 +235,31 @@ def train_model(data, generator, discriminator, checkpoint, test_noise, blackOrW
         # Generate after the final epoch
     # generate_samples(generator, test_noise)
 
+
+def generate_samples(model, test_input, C):
+    predictions = model([test_input, C], training=False)
+    return predictions
+
+def plot_distribution(df):
+    g = sns.JointGrid(data=df, x="c", y="y", space=0)
+    g.plot_joint(sns.kdeplot,
+                 fill=True,thresh=0, levels=100, clip=((0,1)), cmap="rocket")
+    g.plot_marginals(sns.histplot, color="#03051A", alpha=1, bins=100)
+    plt.show()
+
+# TODO show c vs y
+# TODO
+def analyze_model(generator, discriminator, test_noise, blackOrWhiteBox):
+    C = np.random.rand(1, params["EXAMPLES_TO_GENERATE"]).T
+    samples = generate_samples(generator, test_noise, C)
+    predictions = blackOrWhiteBox.predict_proba(np.array(samples))[:, 1]  # get the proba of y =1
+    df = pd.DataFrame(np.array([C.T[0], predictions]).T, columns=["c", "y"])
+    plot_distribution(df)
+
+
+    return predictions
+
+
 def run_GAN(data, num_features,blackOrWhiteBox):
     output_dim = num_features
     test_noise = tf.random.normal([params["EXAMPLES_TO_GENERATE"], params["NOISE_DIM"]])
@@ -227,9 +270,9 @@ def run_GAN(data, num_features,blackOrWhiteBox):
                                      discriminator_optimizer=discriminator_optimizer,
                                      generator=generator,
                                      discriminator=discriminator)
-    train_model(data, generator, discriminator, checkpoint, test_noise,blackOrWhiteBox)
+    train_model(data, generator, discriminator, checkpoint, test_noise, blackOrWhiteBox)
 
-    # analyze_model(generator, discriminator, test_noise, data, num_features)
+    analyze_model(generator, discriminator, test_noise, blackOrWhiteBox)
 
 
 
