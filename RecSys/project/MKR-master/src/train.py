@@ -74,6 +74,7 @@ def train(args, data, show_loss, show_topk):
                 print('\n')
         print(f"avg time per epoch : {avg_time/args.n_epochs}")
 
+
 def get_feed_dict_for_rs(model, data, start, end):
     feed_dict = {model.user_indices: data[start:end, 0],
                  model.item_indices: data[start:end, 1],
