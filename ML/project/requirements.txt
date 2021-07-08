@@ -17,7 +17,7 @@ cffi==1.14.0
 chardet==3.0.4
 cloudpickle @ file:///tmp/build/80754af9/cloudpickle_1594141588948/work
 colorama==0.4.3
-cryptography==2.9.2
+cryptography==3.3.2
 cycler==0.10.0
 Cython==0.29.21
 cytoolz==0.10.1
