@@ -21,33 +21,34 @@ import seaborn as sns
 tf.executing_eagerly()
 
 # params german
-# params = {
-#     "BATCH_SIZE": 64,
-#     "NOISE_DIM": 100,
-#     "EXAMPLES_TO_GENERATE": 1000,
-#     "DENSE_DIM" : 32,
-#     "EPOCHS": 600,
-#     "MAX_DEPTH": 5, # 3 for diabetes
-#     "CHECKPOINT_PATH": "~/training_checkpoint/",
-#     "FILES": ["german_credit.arff"],
-#     "BUFFER_SIZE": 1000
-# }
-# generator_optimizer = Adam(0.0005)
-# discriminator_optimizer = Adam(0.0005)
-
-# params diabetes
+'''
 params = {
     "BATCH_SIZE": 64,
     "NOISE_DIM": 100,
     "EXAMPLES_TO_GENERATE": 1000,
     "DENSE_DIM" : 8,
-    "MAX_DEPTH": 5,
     "EPOCHS": 600,
+    "MAX_DEPTH": 5, # 3 for diabetes
     "CHECKPOINT_PATH": "~/training_checkpoint/",
     "FILES": ["german_credit.arff"],
     "BUFFER_SIZE": 1000
 }
+generator_optimizer = Adam(1e-4)
+discriminator_optimizer = Adam(1e-4)
+'''
 
+# params diabetes
+params = {
+    "BATCH_SIZE": 128,
+    "NOISE_DIM": 100,
+    "EXAMPLES_TO_GENERATE": 1000,
+    "DENSE_DIM" : 64,
+    "MAX_DEPTH": 3,
+    "EPOCHS": 1700,
+    "CHECKPOINT_PATH": "~/training_checkpoint/",
+    "FILES": ["diabetes.arff"],
+    "BUFFER_SIZE": 1000
+}
 generator_optimizer = Adam(1e-4)
 discriminator_optimizer = Adam(1e-4)
 
@@ -128,7 +129,35 @@ def check_clf_performance(clf, X_test, y_test):
     plt.hist(predictions)
     plt.show()
 
+## Diabetes network
+def build_generator_model(batch_size, input_shape_noise, dense_dim, output_dim):
+    input1 = Input(shape=input_shape_noise, batch_size=batch_size)
+    input2 = Input(shape = 1, batch_size=batch_size)
 
+    x = concatenate([input1, input2])
+
+    x = Dense(dense_dim, activation='relu')(x)
+    x = Dense(dense_dim * 4, activation='relu')(x)
+    x = Dense(output_dim)(x)
+    model = Model(inputs=[input1,input2], outputs=x)
+    return model
+
+def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
+    input = Input(shape=input_shape, batch_size=batch_size)
+    inputC = Input(shape=(1,), batch_size=batch_size)
+    inputY = Input(shape=(1,), batch_size=batch_size)
+
+    x = concatenate([input, inputC,inputY])
+
+    x = Dense(dense_dim * 4, activation='relu')(x)
+    x = Dropout(0.2)(x)
+    x = Dense(dense_dim, activation='relu')(x)
+    x = Dense(output_shape, activation='sigmoid')(x)
+    model = Model(inputs=[input,inputC,inputY], outputs=x)
+    return model
+
+# german dataset
+'''
 def build_generator_model(batch_size, input_shape_noise, dense_dim, output_dim):
     input1 = Input(shape=input_shape_noise, batch_size=batch_size)
     input2 = Input(shape = 1, batch_size=batch_size)
@@ -157,6 +186,7 @@ def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1
     x = Dense(output_shape, activation='sigmoid')(x)
     model = Model(inputs=[input,inputC,inputY], outputs=x)
     return model
+'''
 
 def generator_loss(fake_output):
     return cross_entropy(tf.ones_like(fake_output), fake_output)
@@ -197,10 +227,6 @@ def step(samples, generator, discriminator, blackOrWhiteBox,C):
         real_output = discriminator([tf.convert_to_tensor(sample_real), tf.convert_to_tensor(y_real), tf.convert_to_tensor(c_real)], training=True)
         fake_output = discriminator([tf.convert_to_tensor(sample_fake), tf.convert_to_tensor(c_fake), tf.convert_to_tensor(y_fake)], training=True)
 
-
-
-        # real_output = discriminator(generated_sample, training = True)
-        # fake_output = discriminator(generated_sample, training=True)
         gen_loss = generator_loss(fake_output)
         disc_loss = discriminator_loss(real_output, fake_output)
 
@@ -226,14 +252,8 @@ def train_model(data, generator, discriminator, checkpoint, test_noise, blackOrW
             tf.summary.scalar('gen_loss', gen_train_loss.result(), step=epoch)
             tf.summary.scalar('disc_loss', disc_train_loss.result(), step=epoch)
 
-        # # Save the model every epoch
-        # checkpoint.save(file_prefix=params["CHECKPOINT_PATH"])
-
-        # print('Time for epoch {} is {} sec'.format(epoch + 1, time.time() - start))
         gen_train_loss.reset_states()
         disc_train_loss.reset_states()
-        # Generate after the final epoch
-    # generate_samples(generator, test_noise)
 
 
 def generate_samples(model, test_input, C):
@@ -247,8 +267,7 @@ def plot_distribution(df):
     g.plot_marginals(sns.histplot, color="#03051A", alpha=1, bins=100)
     plt.show()
 
-# TODO show c vs y
-# TODO
+
 def analyze_model(generator, discriminator, test_noise, blackOrWhiteBox):
     C = np.random.rand(1, params["EXAMPLES_TO_GENERATE"]).T
     samples = generate_samples(generator, test_noise, C)
@@ -263,7 +282,7 @@ def analyze_model(generator, discriminator, test_noise, blackOrWhiteBox):
 def run_GAN(data, num_features,blackOrWhiteBox):
     output_dim = num_features
     test_noise = tf.random.normal([params["EXAMPLES_TO_GENERATE"], params["NOISE_DIM"]])
-    # TODO - change dense dim
+
     generator = build_generator_model(params["BATCH_SIZE"], params["NOISE_DIM"], params["DENSE_DIM"], output_dim)
     discriminator = build_discriminator_model(params["BATCH_SIZE"], output_dim, params["DENSE_DIM"])
     checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
@@ -279,10 +298,6 @@ def run_GAN(data, num_features,blackOrWhiteBox):
 
 
 def main():
-
-    print("VERSION TF" + tf.__version__)
-    print("VERSION NP" + np.__version__)
-
     for file in params["FILES"]:
 
         if file == "german_credit.arff":

@@ -28,19 +28,21 @@ generator_optimizer = Adam(1e-4)
 discriminator_optimizer = Adam(1e-4)
 
 # params german
-# params = {
-#     "BATCH_SIZE": 64,
-#     "NOISE_DIM": 100,
-#     "EXAMPLES_TO_GENERATE": 100,
-#     "DENSE_DIM" : 8,
-#     "EPOCHS": 400,
-#     "CHECKPOINT_PATH": "~/training_checkpoint/",
-#     "FILES": ["german_credit.arff"],
-#     "BUFFER_SIZE": 1000
-# }
-#
-# generator_optimizer = Adam(0.00009)
-# discriminator_optimizer = Adam(0.00009)
+'''
+params = {
+    "BATCH_SIZE": 64,
+    "NOISE_DIM": 100,
+    "EXAMPLES_TO_GENERATE": 100,
+    "DENSE_DIM" : 8,
+    "EPOCHS": 400,
+    "CHECKPOINT_PATH": "~/training_checkpoint/",
+    "FILES": ["german_credit.arff"],
+    "BUFFER_SIZE": 1000
+}
+
+generator_optimizer = Adam(0.00009)
+discriminator_optimizer = Adam(0.00009)
+'''
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
@@ -84,26 +86,23 @@ def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1
 
 
 # network german
-# def build_generator_model(batch_size, input_shape, dense_dim, output_dim):
-#     input = Input(shape=input_shape, batch_size=batch_size)
-#     x = Dense(dense_dim, activation='relu')(input)
-#     x = Dense(dense_dim * 2, activation='relu')(x)
-#     # x = Dense(dense_dim * 4, activation='relu')(x)
-#     x = Dense(output_dim)(x)
-#     model = Model(inputs=input, outputs=x)
-#     return model
-#
-# def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
-#     input = Input(shape=input_shape, batch_size=batch_size)
-#     # x = Dense(dense_dim * 4, activation='relu')(input)
-#     # x = Dropout(0.1)(x)
-#     x = Dense(dense_dim * 2, activation='relu')(input)
-#     # x = Dropout(0.1)(x)
-#     x = Dense(dense_dim, activation='relu')(x)
-#     x = Dense(output_shape, activation='sigmoid')(x)
-#     model = Model(inputs=input, outputs=x)
-#     return model
+'''
+def build_generator_model(batch_size, input_shape, dense_dim, output_dim):
+    input = Input(shape=input_shape, batch_size=batch_size)
+    x = Dense(dense_dim, activation='relu')(input)
+    x = Dense(dense_dim * 2, activation='relu')(x)
+    x = Dense(output_dim)(x)
+    model = Model(inputs=input, outputs=x)
+    return model
 
+def build_discriminator_model(batch_size, input_shape, dense_dim, output_shape=1):
+    input = Input(shape=input_shape, batch_size=batch_size)
+    x = Dense(dense_dim * 2, activation='relu')(input)
+    x = Dense(dense_dim, activation='relu')(x)
+    x = Dense(output_shape, activation='sigmoid')(x)
+    model = Model(inputs=input, outputs=x)
+    return model
+'''
 
 def generator_loss(fake_output):
     return cross_entropy(tf.ones_like(fake_output), fake_output)
@@ -116,7 +115,6 @@ def discriminator_loss(real_output, fake_output):
     return total_loss
 
 
-# TODO do we need to generate the predictions here?
 def train_model(data, generator, discriminator, checkpoint, test_noise):
     for epoch in tqdm(range(params["EPOCHS"])):
         start = time.time()
@@ -168,7 +166,6 @@ def step(samples, generator, discriminator):
 def run_GAN(data, num_features):
     output_dim = num_features
     test_noise = tf.random.normal([params["EXAMPLES_TO_GENERATE"], params["NOISE_DIM"]])
-    # TODO - change dense dim
     generator = build_generator_model(params["BATCH_SIZE"], params["NOISE_DIM"], params["DENSE_DIM"], output_dim)
     discriminator = build_discriminator_model(params["BATCH_SIZE"], output_dim, params["DENSE_DIM"])
     checkpoint = tf.train.Checkpoint(generator_optimizer=generator_optimizer,
