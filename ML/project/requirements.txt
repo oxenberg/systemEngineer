@@ -66,7 +66,7 @@ nbformat==5.0.7
 networkx==2.4
 ngboost @ git+https://github.com/stanfordmlgroup/ngboost.git@142453243984444915d6ad3bd0dd3f70238281a4
 notebook==6.0.3
-numpy==1.18.5
+numpy==1.22.0
 numpydoc @ file:///tmp/build/80754af9/numpydoc_1594166760263/work
 olefile==0.46
 packaging==20.4
