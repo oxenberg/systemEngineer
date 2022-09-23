@@ -80,7 +80,7 @@ pexpect==4.8.0
 pickleshare==0.7.5
 pluggy==0.13.1
 prompt-toolkit==3.0.5
-protobuf==3.11.4
+protobuf==3.18.3
 psutil==5.7.0
 pyaml==19.4.1
 pyasn1==0.4.8
