@@ -12,7 +12,7 @@ bcrypt==3.1.7
 bleach==3.1.5
 Bottleneck==1.3.2
 brotlipy==0.7.0
-certifi==2020.6.20
+certifi==2022.12.7
 cffi==1.14.0
 chardet==3.0.4
 cloudpickle @ file:///tmp/build/80754af9/cloudpickle_1594141588948/work
